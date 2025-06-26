@@ -1,0 +1,25 @@
+[project]
+name = "translation"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "langgraph",
+    "langchain-openai",
+    "python-dotenv",
+    "langchain",
+    "rapidfuzz",
+    "rich",
+    "matplotlib",
+    "networkx"
+]
+
+[dependency-groups]
+dev = [
+    "pytest",
+    "pytest-mock"
+]
+
+[tool.pytest.ini_options]
+pythonpath = "."

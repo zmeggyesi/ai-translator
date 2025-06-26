@@ -1,0 +1,15 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Project Management Tool
+
+This project is managed using [UV](mdc:https:/github.com/astral-sh/uv), a fast Python package manager and workflow tool. All dependency management and environment operations should be performed using UV commands.
+
+## General guidelines
+
+- Secrets should be drawn from a `.env` file.
+- Each tool or LangGraph node should be its own Python module/file in order to keep the code manageable.
+- All tools or nodes, as well as the main application logic, must be covered with unit tests, using appropriate mocking. At the very least the happy path should be tested, but most error paths should be invoked iin tests at some point to ensure robustness.
+- Use `pytest` for the tests.

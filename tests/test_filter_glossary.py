@@ -5,6 +5,7 @@ def test_filter_glossary_finds_terms():
         "original_content": "This text talks about Python and LangGraph.",
         "glossary": {"Python": "Python 3", "LangGraph": "LG", "Unrelated": "Term"},
         "style_guide": "formal",
+        "source_language": "English",
         "target_language": "English",
         "messages": [],
     }

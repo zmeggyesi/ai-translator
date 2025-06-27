@@ -1,3 +1,147 @@
-term,translation
-LangGraph,LangGraph
-Python,Python 
+A force for,確実に守る力
+access control list,アクセス コントロール リスト
+access management,アクセス管理
+account takeover protection,アカウント乗っ取り防止
+adaptive application,適応型アプリケーション
+Advanced WAF,Advanced WAF
+amplification attack,アンプ攻撃
+anonymization services,匿名化サービス
+applicable law,適用される法律
+application developer,アプリケーション開発者
+application infrastructure,アプリケーション インフラストラクチャ
+application intelligence,アプリケーション インテリジェンス
+application lifecycle,アプリケーション ライフサイクル
+application management,アプリケーション管理
+application security service,アプリケーション セキュリティ サービス
+application telemetry,アプリケーション テレメトリ
+application template,アプリケーション テンプレート
+application vulnerabilities,アプリケーションの脆弱性
+artificial intelligence,人工知能
+authentication data,認証データ
+automated deployment,導入の自動化
+breached credentials,侵害された認証情報
+brute force attack,ブルート フォース攻撃
+chaos engineering,カオス エンジニアリング
+chatbot,チャットボット
+cloud interconnection,クラウド相互接続
+cloud provider,クラウド プロバイダ
+cloud-native environment,クラウドネイティブ環境
+competent jurisdiction,裁判管轄区域
+competitive advantage,競争上の優位性
+confidential information,機密情報
+configuration utility,コンフィギュレーション ユーティリティ
+container environment,コンテナ環境
+containerized application,コンテナ化されたアプリケーション
+content cache,コンテンツ キャッシュ
+contractual obligations,契約上の義務
+cookie poisoning,Cookieポイズニング
+cookie validation,Cookie検証
+core network,コア ネットワーク
+credential stuffing,クレデンシャル スタッフィング
+cryptographic software,暗号ソフトウェア
+custom application,カスタム アプリケーション
+customer loyalty,顧客ロイヤルティ
+cyber attack,サイバー攻撃
+cybersecurity risks,サイバーセキュリティのリスク
+daisy chain,デイジー チェーン
+data backup and retrieval technology,データ バックアップおよび検索の技術
+data exfiltration,データ流出
+data leak prevention,データ漏洩防止
+data path,データ パス
+data sanitization,データ サニタイズ
+data security,データ セキュリティ
+declarative interface,宣言型インターフェイス
+deployment guide,導入ガイド
+deployment model,導入モデル
+digital certificate,デジタル証明書
+digital transformation,デジタル トランスフォーメーション
+discrete logarithm,離散対数
+distributed denial-of-service attack,DDoS攻撃 (分散型サービス拒否攻撃)
+ecosystem integration,エコシステム統合
+edge computing,エッジ コンピューティング
+encryption technology,暗号化技術
+fake account,偽のアカウント
+file server consolidation,ファイル サーバの統合
+fraud protection,不正対策
+fraudulent transaction,不正取引
+global network,グローバル ネットワーク
+granular control,きめ細かな制御
+graphical user interface,グラフィカル ユーザー インターフェイス
+hacking attempt,ハッキングの試み
+hardware appliance,ハードウェア アプライアンス
+hosted application,ホストされているアプリケーション
+hybrid cloud,ハイブリッド クラウド
+intellectual property,知的財産
+intelligent automation,インテリジェント オートメーション
+intelligent traffic management,インテリジェントなトラフィック管理
+intrusion prevention system,侵入検知システム
+legal ground,法的根拠
+licensing agreement,ライセンス契約
+limited warranty,リミテッド ワランティ
+local data protection law,現地のデータ保護法
+login credentials,ログイン資格情報
+malicious payload,悪意のあるペイロード
+malicious website,悪意のあるWebサイト
+malware detection,マルウェア検知
+malware sandbox,マルウェア サンドボックス
+multi-cloud ecosystem,マルチクラウド エコシステム
+network infrastructure,ネットワーク インフラストラクチャ
+network topology,ネットワーク トポロジ
+network traffic management,ネットワーク トラフィック管理
+onboarding process,オンボーディング プロセス
+open cloud environment,オープン クラウド環境
+open source software,オープン ソース ソフトウェア
+orchestration system,オーケストレーション システム
+perpetual license,永久ライセンス
+phishing attack,フィッシング攻撃
+physical access attempt,物理的なアクセスの試行
+planned maintenance,計画メンテナンス
+privacy notice,個人情報保護方針
+private cloud environment,プライベート クラウド環境
+private data center,プライベート データ センタ
+privileged account,特権アカウント
+privileged user access,特権ユーザー アクセス
+rapid deployment,迅速な導入
+raw data,ロー データ
+remote access,リモート アクセス
+remote worker,リモートワーカー
+request routing,リクエスト ルーティング
+security architecture,セキュリティ アーキテクチャ
+security control,セキュリティ管理
+security countermeasures,セキュリティ対策
+security exposure,セキュリティのリスク
+security inspection device,セキュリティ検査デバイス
+security optimization,セキュリティの最適化
+security strategy,セキュリティ戦略
+security vulnerability,セキュリティ脆弱性
+sensitive personal data,機密性の高い個人情報
+server resources,サーバ リソース
+service delivery architecture,サービス デリバリ アーキテクチャ
+session hijacking,セッション ハイジャック
+session initiation protocol,セッション起動プロトコル
+signaling platform,シグナリング プラットフォーム
+signature detection,シグネチャ検出
+software upgrade,ソフトウェア アップグレード
+software virtual image,ソフトウェア仮想イメージ
+sophisticated threat,巧妙化した脅威
+source code,ソース コード
+standalone module,スタンドアロン モジュール
+support infrastructure,サポート インフラストラクチャ
+symmetric encryption,対称型暗号化
+system configuration,システム構成
+targeted cyberattack,標的型サイバー攻撃
+topology hiding,トポロジ隠蔽
+traffic management platform,トラフィック管理プラットフォーム
+traffic optimization,トラフィックの最適化
+tunneling protocol,トンネリング プロトコル
+unauthorized access,不正アクセス
+untrusted network,信頼されていないネットワーク
+virtual firewall,仮想ファイアウォール
+virtual machine,仮想マシン
+virtual policy enforcement,仮想ポリシー実施
+virtual server,仮想サーバ
+volumetric attack,ボリューム型攻撃
+web performance optimization,Webパフォーマンスの最適化
+web security,Webセキュリティ
+website functionality,Webサイトの機能
+wireless network,ワイヤレス ネットワーク

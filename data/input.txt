@@ -1,1 +1,1 @@
-This is a test of the new translation system powered by LangGraph. 
+I will defer the detailed explanation of Chaos Engineering to this article, but in this session it’s really about “an approach to identify critical failures and get them fixed quickly” – something similar to fire drills. 

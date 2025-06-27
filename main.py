@@ -90,14 +90,35 @@ def main():
     glossary = {}
     try:
         with open(args.glossary, "r", encoding="utf-8", newline="") as f:
+            # First, try to read with headers
             reader = csv.DictReader(f)
-            for row in reader:
-                glossary[row["term"]] = row["translation"]
+            fieldnames = reader.fieldnames
+            
+            # Check if the CSV has proper headers (term, translation)
+            if fieldnames and "term" in fieldnames and "translation" in fieldnames:
+                # CSV has proper headers
+                for row in reader:
+                    if row["term"] and row["translation"]:  # Skip empty rows
+                        glossary[row["term"]] = row["translation"]
+                logger.info(f"Loaded glossary with headers from {args.glossary}")
+            else:
+                # CSV doesn't have proper headers, treat as headerless
+                # Reset file pointer to beginning
+                f.seek(0)
+                reader = csv.reader(f)
+                for row_num, row in enumerate(reader, 1):
+                    if len(row) >= 2 and row[0] and row[1]:  # Ensure we have at least 2 columns and they're not empty
+                        glossary[row[0]] = row[1]  # First column = term, second = translation
+                    elif len(row) < 2:
+                        logger.warning(f"Skipping row {row_num} in glossary: insufficient columns")
+                logger.info(f"Loaded headerless glossary from {args.glossary} (assuming first column=term, second=translation)")
+                
     except FileNotFoundError:
         logger.error(f"Glossary file not found: {args.glossary}")
         return
     except Exception as e:
-        logger.error(f"Error reading glossary file: {e}")
+        logger.error(f"Error reading glossary file {args.glossary}: {e}")
+        logger.error("Please ensure the CSV file either has 'term,translation' headers or is formatted with term in first column, translation in second column")
         return
 
     try:

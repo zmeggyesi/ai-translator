@@ -6,6 +6,7 @@ class TranslationState(TypedDict):
     original_content: str
     glossary: dict
     style_guide: str
+    source_language: str  # Source language for translation
     target_language: str  # Target language for translation
     filtered_glossary: Optional[dict]
     translated_content: Optional[str]

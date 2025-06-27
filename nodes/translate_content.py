@@ -30,7 +30,7 @@ import os
 logger = logging.getLogger(__name__)
 
 TRANSLATION_PROMPT = """
-Translate the following content to {target_language}:
+Translate the following content from {source_language} to {target_language}:
 
 ---
 {original_content}
@@ -48,7 +48,7 @@ def translate_content(state: TranslationState) -> dict:
     """
     Translates the original content based on the filtered glossary and style guide.
     """
-    logger.info(f"Translating content to {state['target_language']}...")
+    logger.info(f"Translating content from {state['source_language']} to {state['target_language']}...")
     
     try:
         # Check if OpenAI API key is set
@@ -68,6 +68,7 @@ def translate_content(state: TranslationState) -> dict:
             "original_content": state["original_content"],
             "style_guide": state["style_guide"],
             "glossary": json.dumps(glossary, ensure_ascii=False),
+            "source_language": state["source_language"],
             "target_language": state["target_language"],
         })
 

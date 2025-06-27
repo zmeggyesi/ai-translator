@@ -27,10 +27,16 @@ def main():
     # Parse command-line arguments
     parser = argparse.ArgumentParser(description="Translate content using AI with glossary and style guide")
     parser.add_argument(
-        "-l", "--language",
+        "-sl", "--source-language",
         type=str,
         default="English",
-        help="Target language for translation (default: English)"
+        help="Source language of the input text (default: English)"
+    )
+    parser.add_argument(
+        "-tl", "--target-language",
+        type=str,
+        default="Spanish",
+        help="Target language for translation (default: Spanish)"
     )
     parser.add_argument(
         "-i", "--input",
@@ -38,26 +44,71 @@ def main():
         default="data/input.txt",
         help="Input file path (default: data/input.txt)"
     )
+    parser.add_argument(
+        "-g", "--glossary",
+        type=str,
+        default="data/glossary.csv",
+        help="Glossary CSV file path (default: data/glossary.csv)"
+    )
+    parser.add_argument(
+        "-s", "--style-guide",
+        type=str,
+        default="data/style_guide.md",
+        help="Style guide file path (default: data/style_guide.md)"
+    )
+    # Keep backward compatibility with -l/--language for target language
+    parser.add_argument(
+        "-l", "--language",
+        type=str,
+        help="Target language for translation (deprecated, use --target-language instead)"
+    )
     args = parser.parse_args()
+
+    # Handle backward compatibility
+    target_language = args.target_language
+    if args.language:
+        target_language = args.language
+        print("Warning: -l/--language is deprecated, use -tl/--target-language instead")
 
     load_dotenv()
     setup_logging()
 
     logger = logging.getLogger(__name__)
-    logger.info(f"Starting translation to {args.language}")
+    logger.info(f"Starting translation from {args.source_language} to {target_language}")
 
     # 1. Load data
-    with open(args.input, "r", encoding="utf-8") as f:
-        original_content = f.read()
+    try:
+        with open(args.input, "r", encoding="utf-8") as f:
+            original_content = f.read()
+    except FileNotFoundError:
+        logger.error(f"Input file not found: {args.input}")
+        return
+    except Exception as e:
+        logger.error(f"Error reading input file: {e}")
+        return
 
     glossary = {}
-    with open("data/glossary.csv", "r", encoding="utf-8", newline="") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            glossary[row["term"]] = row["translation"]
+    try:
+        with open(args.glossary, "r", encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                glossary[row["term"]] = row["translation"]
+    except FileNotFoundError:
+        logger.error(f"Glossary file not found: {args.glossary}")
+        return
+    except Exception as e:
+        logger.error(f"Error reading glossary file: {e}")
+        return
 
-    with open("data/style_guide.md", "r", encoding="utf-8") as f:
-        style_guide = f.read()
+    try:
+        with open(args.style_guide, "r", encoding="utf-8") as f:
+            style_guide = f.read()
+    except FileNotFoundError:
+        logger.error(f"Style guide file not found: {args.style_guide}")
+        return
+    except Exception as e:
+        logger.error(f"Error reading style guide file: {e}")
+        return
 
     # 2. Create and run the graph
     checkpointer = InMemorySaver()
@@ -69,7 +120,8 @@ def main():
         "original_content": original_content,
         "glossary": glossary,
         "style_guide": style_guide,
-        "target_language": args.language,
+        "source_language": args.source_language,
+        "target_language": target_language,
         "messages": [], # Initialize messages list
     }
 
@@ -106,7 +158,7 @@ def main():
     # 3. Print results
     print("\n--- Original Content ---")
     print(original_content)
-    print(f"\n--- Translated Content ({args.language}) ---")
+    print(f"\n--- Translated Content ({args.source_language} → {target_language}) ---")
     print(final_state.get("translated_content"))
 
 if __name__ == "__main__":

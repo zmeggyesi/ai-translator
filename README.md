@@ -2,20 +2,21 @@
 
 This project is a **minimal yet production-grade** example of how to combine [LangGraph](https://github.com/langchain-ai/langgraph) with [LangChain](https://github.com/langchain-ai/langchain) to build a translation workflow that enforces both a *style guide* and a *domain-specific glossary*.
 
-The pipeline is intentionally small (two nodes) so the focus stays on the architecture and testing discipline rather than on lavish prompt engineering.
+The pipeline is intentionally small (three nodes) so the focus stays on the architecture and testing discipline rather than on lavish prompt engineering.
 
 ---
 ## Workflow Overview
 
 ```
-      ┌───────────────────┐        ┌───────────────────┐
-      │  glossary_filter  │──▶──▶──│    translator     │──▶──▶── END
-      └───────────────────┘        └───────────────────┘
-           (RapidFuzz)                  (OpenAI LLM)
+      ┌───────────────────┐        ┌───────────────────┐        ┌───────────────────┐
+      │  glossary_filter  │──▶──▶──│   human_review    │──▶──▶──│    translator     │──▶──▶── END
+      └───────────────────┘        └───────────────────┘        └───────────────────┘
+           (RapidFuzz)                (Human-in-the-loop)            (OpenAI LLM)
 ```
 
 1. **Glossary Filter** – Scans the source text and keeps **only** the glossary terms that actually appear (RapidFuzz fuzzy-matching, score ≥ 75).
-2. **Translator** – Crafts a prompt embedding the style guide & the filtered glossary, then calls `gpt-4o` (or a mocked model during tests) to obtain the translated content.
+2. **Human Review** – Pauses execution to allow human review and modification of the filtered glossary before translation.
+3. **Translator** – Crafts a prompt embedding the style guide & the filtered glossary, then calls `gpt-4o` (or a mocked model during tests) to obtain the translated content.
 
 Both nodes return *partial* state updates which LangGraph merges into the global `TranslationState` object, keeping the nodes completely decoupled.
 
@@ -31,10 +32,12 @@ translation/
 ├── nodes/                # Individual LangGraph nodes
 │   ├── __init__.py
 │   ├── filter_glossary.py
+│   ├── human_review.py
 │   └── translate_content.py
 ├── tests/                # pytest unit tests with extensive mocking
 │   ├── test_filter_glossary.py
-│   └── test_translate_content.py
+│   ├── test_translate_content.py
+│   └── test_graph_visualization.py
 ├── graph.py              # Graph wiring – defines the node topology
 ├── main.py               # Example CLI entry-point that runs the full graph
 ├── state.py              # TypedDict shared state definition
@@ -72,22 +75,54 @@ The code automatically loads `.env` via `python-dotenv` on startup.
 ### 3. Run the example
 
 ```bash
-python -m translation.main  # prints original & translated content
+python main.py  # Default: English to Spanish translation
 ```
 
 #### Command-line options:
 
 ```bash
-# Specify target language (default: English)
-python -m translation.main --language Spanish
-python -m translation.main -l French
+# Basic usage with custom languages
+python main.py --source-language English --target-language French
+python main.py -sl German -tl English
 
-# Specify input file (default: data/input.txt)
-python -m translation.main --input data/custom_input.txt
-python -m translation.main -i data/another_file.txt
+# Custom file locations
+python main.py --input data/my_document.txt --glossary data/my_glossary.csv --style-guide data/my_style.md
+python main.py -i data/doc.txt -g data/terms.csv -s data/guide.md
 
-# Combine options
-python -m translation.main --language German --input data/technical_doc.txt
+# Combine all options
+python main.py -sl English -tl Spanish -i data/technical_doc.txt -g data/tech_glossary.csv -s data/technical_style.md
+
+# Backward compatibility (deprecated)
+python main.py --language French  # Same as --target-language French
+python main.py -l German          # Same as -tl German
+```
+
+#### Available command-line arguments:
+
+- `-sl, --source-language`: Source language of the input text (default: English)
+- `-tl, --target-language`: Target language for translation (default: Spanish)
+- `-i, --input`: Input file path (default: data/input.txt)
+- `-g, --glossary`: Glossary CSV file path (default: data/glossary.csv)  
+- `-s, --style-guide`: Style guide file path (default: data/style_guide.md)
+- `-l, --language`: **Deprecated** - use `--target-language` instead
+
+#### Human-in-the-loop Review
+
+The pipeline includes a human review step that:
+1. Shows you the filtered glossary terms found in your text
+2. Allows you to modify the glossary before translation
+3. Accepts JSON input to update glossary terms, or Enter to continue unchanged
+
+Example interaction:
+```
+--- Human Review ---
+Current filtered glossary:
+{'Python': 'Python 3', 'LangGraph': 'LG'}
+--------------------
+
+--- Waiting for human input ---
+To provide a new glossary, enter a JSON string. Otherwise, press Enter to continue.
+> {"Python": "Python 3.11", "LangGraph": "LangGraph Framework"}
 ```
 
 A Mermaid diagram of the graph will be written to `graph-visualization.md`.
@@ -101,10 +136,34 @@ pytest -q
 The tests use a **dummy** LLM implementation so they are 100 % offline / free.
 
 ---
+## File Formats
+
+### Glossary CSV Format
+The glossary file should be a CSV with `term` and `translation` columns:
+```csv
+term,translation
+Python,Python 3
+LangGraph,LangGraph
+API,Interface de Programmation
+```
+
+### Style Guide Format
+The style guide can be any text file (Markdown recommended) containing translation instructions:
+```markdown
+# Translation Style Guide
+
+- Use formal tone
+- Preserve technical terms in original language when appropriate
+- Use active voice
+- Be concise but clear
+```
+
+---
 ## Extending the Pipeline
 
 * **Add quality-assurance nodes** – e.g. back-translation consistency check.
 * **Persist history** – swap the in-memory `messages` list for a vector store.
 * **Alternative models** – patch `ChatOpenAI` with Anthropic/LLM of choice; the fallback logic in `translate_content.py` keeps tests untouched.
+* **Custom glossary formats** – extend the loader in `main.py` to support JSON, YAML, or database sources.
 
 PRs welcome 🎉

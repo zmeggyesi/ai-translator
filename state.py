@@ -10,4 +10,7 @@ class TranslationState(TypedDict):
     target_language: str  # Target language for translation
     filtered_glossary: Optional[dict]
     translated_content: Optional[str]
-    messages: Annotated[List[BaseMessage], add_messages] 
+    messages: Annotated[List[BaseMessage], add_messages]
+    # Review fields
+    review_score: Optional[float]  # Score between -1.0 and 1.0
+    review_explanation: Optional[str]  # Explanation for low scores 

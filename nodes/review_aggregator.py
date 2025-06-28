@@ -26,9 +26,10 @@ logger = logging.getLogger(__name__)
 # Default weights for combining dimension scores
 # These can be adjusted based on translation priorities
 DEFAULT_WEIGHTS = {
-    "glossary_faithfulness": 0.4,  # High weight - terminology is critical
-    "grammar_correctness": 0.35,   # High weight - readability is important
-    "style_adherence": 0.25,       # Lower weight - style is less critical than accuracy
+    "glossary_faithfulness": 0.3,  # High weight - terminology is critical
+    "grammar_correctness": 0.3,    # High weight - readability is important
+    "style_adherence": 0.2,        # Lower weight - style is less critical than accuracy
+    "tmx_faithfulness": 0.2,       # Medium weight - TMX consistency is important
 }
 
 def aggregate_review_scores(state: TranslationState) -> dict:
@@ -50,11 +51,13 @@ def aggregate_review_scores(state: TranslationState) -> dict:
     glossary_score = state.get("glossary_faithfulness_score")
     grammar_score = state.get("grammar_correctness_score")
     style_score = state.get("style_adherence_score")
+    tmx_score = state.get("tmx_faithfulness_score")
     
     # Extract explanations
     glossary_explanation = state.get("glossary_faithfulness_explanation", "")
     grammar_explanation = state.get("grammar_correctness_explanation", "")
     style_explanation = state.get("style_adherence_explanation", "")
+    tmx_explanation = state.get("tmx_faithfulness_explanation", "")
     
     # Collect available scores and their weights
     available_scores = {}
@@ -74,6 +77,11 @@ def aggregate_review_scores(state: TranslationState) -> dict:
         available_scores["style_adherence"] = style_score
         total_weight += DEFAULT_WEIGHTS["style_adherence"]
         logger.debug(f"Style adherence score: {style_score:.2f}")
+    
+    if tmx_score is not None:
+        available_scores["tmx_faithfulness"] = tmx_score
+        total_weight += DEFAULT_WEIGHTS["tmx_faithfulness"]
+        logger.debug(f"TMX faithfulness score: {tmx_score:.2f}")
     
     # Calculate weighted average if we have any scores
     if available_scores and total_weight > 0:
@@ -101,6 +109,9 @@ def aggregate_review_scores(state: TranslationState) -> dict:
     
     if style_explanation and style_score is not None and style_score < 0.7:
         explanations.append(f"Style Adherence: {style_explanation}")
+    
+    if tmx_explanation and tmx_score is not None and tmx_score < 0.7:
+        explanations.append(f"TMX Consistency: {tmx_explanation}")
     
     # Combine explanations
     final_explanation = ""
@@ -161,4 +172,5 @@ def get_detailed_breakdown(state: TranslationState) -> Dict[str, Optional[float]
         "glossary_faithfulness": state.get("glossary_faithfulness_score"),
         "grammar_correctness": state.get("grammar_correctness_score"),
         "style_adherence": state.get("style_adherence_score"),
+        "tmx_faithfulness": state.get("tmx_faithfulness_score"),
     }

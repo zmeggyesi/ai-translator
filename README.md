@@ -94,9 +94,13 @@ python main.py -i data/doc.txt -g data/terms.csv -s data/guide.md
 # Combine all options
 python main.py -sl English -tl Spanish -i data/technical_doc.txt -g data/tech_glossary.csv -s data/technical_style.md
 
-# Enable automatic translation review
+# Enable automatic translation review (multi-agent system)
 python main.py --review
 python main.py -sl English -tl French --review
+
+# Generate workflow visualizations  
+python main.py --visualize --viz-type all
+python main.py --review --visualize --viz-type combined
 
 # Backward compatibility (deprecated)
 python main.py --language French  # Same as --target-language French
@@ -110,7 +114,9 @@ python main.py -l German          # Same as -tl German
 - `-i, --input`: Input file path (default: data/input.txt)
 - `-g, --glossary`: Glossary CSV file path (default: data/glossary.csv)  
 - `-s, --style-guide`: Style guide file path (default: data/style_guide.md)
-- `--review`: Enable automatic translation review and scoring
+- `--review`: Enable automatic translation review and scoring (uses multi-agent system by default)
+- `--visualize`: Generate visualization diagrams of the workflow  
+- `--viz-type {main,review,combined,all}`: Type of visualization to generate (default: combined when review is enabled)
 - `-l, --language`: **Deprecated** - use `--target-language` instead
 
 #### Human-in-the-loop Review
@@ -187,7 +193,36 @@ python -m nodes.review_translation \
 - Individual dimension scores and explanations are shown in the detailed breakdown
 - The system prioritizes actionable feedback for improvement
 
-### 4. Run the test-suite
+### 4. Workflow Visualizations
+
+The system can generate comprehensive visualizations of the translation workflow, including the multi-agent review system:
+
+```bash
+# Generate all visualization types
+python graph.py --all
+
+# Generate specific visualization types
+python graph.py --review-only -o review_system.png
+python graph.py --combined -o complete_workflow.png
+python graph.py --main-only --review -o main_with_review.png
+
+# Generate visualizations as part of translation
+python main.py --review --visualize --viz-type combined
+```
+
+**Available Visualization Types:**
+- **Main Graph**: Shows the primary translation workflow (glossary filtering, human review, translation)
+- **Review System**: Detailed view of the multi-agent review system with handoff flows
+- **Combined View**: Comprehensive visualization showing both main workflow and review system integration
+- **All Types**: Generates all three visualization types
+
+**Generated Files:**
+- `main_graph.png`: Main translation pipeline
+- `review_system.png`: Multi-agent review system architecture  
+- `combined_workflow.png`: Complete end-to-end process flow
+- `workflow_with_review.png`: Auto-generated when review is enabled
+
+### 5. Run the test-suite
 
 ```bash
 pytest -q

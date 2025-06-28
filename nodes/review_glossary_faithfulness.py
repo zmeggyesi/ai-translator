@@ -22,7 +22,7 @@ from typing import Literal
 # Configure logging
 logger = logging.getLogger(__name__)
 
-def evaluate_glossary_faithfulness(state: TranslationState) -> Command[Literal["grammar_correctness", "aggregator"]]:
+def evaluate_glossary_faithfulness(state: TranslationState) -> Command[Literal["tmx_faithfulness", "grammar_correctness", "aggregator"]]:
     """
     Evaluates how well the translation adheres to the specified glossary terms.
     
@@ -59,12 +59,14 @@ def evaluate_glossary_faithfulness(state: TranslationState) -> Command[Literal["
     
     if not glossary:
         logger.info("No glossary terms to check")
+        # Route to TMX if available, otherwise to grammar
+        next_node = "tmx_faithfulness" if (state.get("tmx_memory") and state["tmx_memory"].get("entries")) else "grammar_correctness"
         return Command(
             update={
                 "glossary_faithfulness_score": 1.0,  # Perfect score if no terms to check
                 "glossary_faithfulness_explanation": ""
             },
-            goto="grammar_correctness"
+            goto=next_node
         )
     
     # Find glossary terms that appear in the original content
@@ -79,12 +81,14 @@ def evaluate_glossary_faithfulness(state: TranslationState) -> Command[Literal["
     
     if not relevant_terms:
         logger.info("No relevant glossary terms found in original content")
+        # Route to TMX if available, otherwise to grammar
+        next_node = "tmx_faithfulness" if (state.get("tmx_memory") and state["tmx_memory"].get("entries")) else "grammar_correctness"
         return Command(
             update={
                 "glossary_faithfulness_score": 1.0,  # Perfect score if no relevant terms
                 "glossary_faithfulness_explanation": ""
             },
-            goto="grammar_correctness"
+            goto=next_node
         )
     
     # Check each relevant term in the translation
@@ -146,8 +150,15 @@ def evaluate_glossary_faithfulness(state: TranslationState) -> Command[Literal["
     
     logger.info(f"Glossary faithfulness evaluation complete. Score: {score:.2f}, Compliance: {compliance_rate:.1%}")
     
-    # Determine next node - skip grammar if score is very low (focus on aggregation)
-    next_node = "grammar_correctness" if score >= -0.5 else "aggregator"
+    # Determine next node - check for TMX first, then grammar, or skip to aggregator if score is very low
+    if score >= -0.5:
+        # Check if TMX memory is available
+        if state.get("tmx_memory") and state["tmx_memory"].get("entries"):
+            next_node = "tmx_faithfulness"
+        else:
+            next_node = "grammar_correctness"
+    else:
+        next_node = "aggregator"
     
     return Command(
         update={

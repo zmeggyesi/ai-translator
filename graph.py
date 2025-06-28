@@ -21,13 +21,14 @@ from nodes.human_review import human_review
 from nodes.review_agent import review_translation_multi_agent, create_review_agent
 from langgraph.checkpoint.base import BaseCheckpointSaver
 
-def create_translator(checkpointer: BaseCheckpointSaver, include_review: bool = False):
+def create_translator(checkpointer: BaseCheckpointSaver, include_review: bool = False, include_tmx: bool = False):
     """
     Creates and compiles the translation LangGraph.
     
     Args:
         checkpointer: The checkpoint saver for state persistence
         include_review: Whether to include the translation review node
+        include_tmx: Whether TMX functionality is enabled (affects review workflow)
     """
     graph = StateGraph(TranslationState)
 
@@ -37,7 +38,11 @@ def create_translator(checkpointer: BaseCheckpointSaver, include_review: bool = 
     
     if include_review:
         # Multi-agent review is now the default
-        graph.add_node("review", review_translation_multi_agent)
+        # Create a wrapper function that passes include_tmx to the review
+        def review_with_tmx(state):
+            return review_translation_multi_agent(state, include_tmx=include_tmx)
+        
+        graph.add_node("review", review_with_tmx)
 
     graph.set_entry_point("glossary_filter")
     graph.add_edge("glossary_filter", "human_review")

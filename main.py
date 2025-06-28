@@ -62,6 +62,11 @@ def main():
         type=str,
         help="Target language for translation (deprecated, use --target-language instead)"
     )
+    parser.add_argument(
+        "--review",
+        action="store_true",
+        help="Enable automatic translation review and scoring"
+    )
     args = parser.parse_args()
 
     # Handle backward compatibility
@@ -75,6 +80,8 @@ def main():
 
     logger = logging.getLogger(__name__)
     logger.info(f"Starting translation from {args.source_language} to {target_language}")
+    if args.review:
+        logger.info("Translation review is enabled")
 
     # 1. Load data
     try:
@@ -136,7 +143,7 @@ def main():
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
 
-    translator_app = create_translator(checkpointer=checkpointer)
+    translator_app = create_translator(checkpointer=checkpointer, include_review=args.review)
     initial_state = {
         "original_content": original_content,
         "glossary": glossary,
@@ -181,6 +188,28 @@ def main():
     print(original_content)
     print(f"\n--- Translated Content ({args.source_language} → {target_language}) ---")
     print(final_state.get("translated_content"))
+    
+    # Print review results if enabled
+    if args.review and final_state.get("review_score") is not None:
+        print(f"\n--- Translation Review ---")
+        score = final_state.get("review_score")
+        explanation = final_state.get("review_explanation", "")
+        
+        print(f"Review Score: {score:.2f} (on scale from -1.0 to 1.0)")
+        
+        if score >= 0.7:
+            print("Quality Assessment: Good to Excellent")
+        elif score >= 0.3:
+            print("Quality Assessment: Acceptable")
+        elif score >= 0.0:
+            print("Quality Assessment: Poor - Needs Improvement")
+        else:
+            print("Quality Assessment: Very Poor - Major Revision Required")
+        
+        if explanation:
+            print(f"Review Explanation: {explanation}")
+        else:
+            print("Review Explanation: None needed (score is sufficiently high)")
 
 if __name__ == "__main__":
     main()

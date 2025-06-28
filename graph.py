@@ -5,7 +5,7 @@
 #
 # The graph has the following topology:
 #
-#   [glossary_filter]  →  [translator]  →  END
+#   [glossary_filter]  →  [translator]  →  [review] (optional)  →  END
 #
 # Each node implements the `Callable[[TranslationState], dict]` protocol and
 # returns a *partial* state update which LangGraph merges into the global
@@ -18,26 +18,39 @@ from state import TranslationState
 from nodes.filter_glossary import filter_glossary
 from nodes.translate_content import translate_content
 from nodes.human_review import human_review
+from nodes.review_translation import review_translation
 from langgraph.checkpoint.base import BaseCheckpointSaver
 
-def create_translator(checkpointer: BaseCheckpointSaver):
+def create_translator(checkpointer: BaseCheckpointSaver, include_review: bool = False):
     """
     Creates and compiles the translation LangGraph.
+    
+    Args:
+        checkpointer: The checkpoint saver for state persistence
+        include_review: Whether to include the translation review node
     """
     graph = StateGraph(TranslationState)
 
     graph.add_node("glossary_filter", filter_glossary)
     graph.add_node("human_review", human_review)
     graph.add_node("translator", translate_content)
+    
+    if include_review:
+        graph.add_node("review", review_translation)
 
     graph.set_entry_point("glossary_filter")
     graph.add_edge("glossary_filter", "human_review")
     graph.add_edge("human_review", "translator")
-    graph.add_edge("translator", END)
+    
+    if include_review:
+        graph.add_edge("translator", "review")
+        graph.add_edge("review", END)
+    else:
+        graph.add_edge("translator", END)
 
     return graph.compile(checkpointer=checkpointer)
 
-def export_graph_png(output_path: str = "translator_graph.png") -> str:
+def export_graph_png(output_path: str = "translator_graph.png", include_review: bool = False) -> str:
     """Generate a PNG image that visualises the LangGraph network.
 
     Parameters
@@ -45,6 +58,8 @@ def export_graph_png(output_path: str = "translator_graph.png") -> str:
     output_path : str, optional
         Filesystem path where the PNG should be written. Defaults to
         ``translator_graph.png`` in the current working directory.
+    include_review : bool, optional
+        Whether to include the review node in the visualization.
 
     Returns
     -------
@@ -69,7 +84,7 @@ def export_graph_png(output_path: str = "translator_graph.png") -> str:
     # This is a bit of a hack, but we need a checkpointer to create the graph.
     # We'll use a dummy one for visualization purposes.
     from langgraph.checkpoint.memory import InMemorySaver
-    compiled_graph = create_translator(checkpointer=InMemorySaver())
+    compiled_graph = create_translator(checkpointer=InMemorySaver(), include_review=include_review)
 
     try:
         mermaid_png = compiled_graph.get_graph().draw_mermaid_png()  # type: ignore[attr-defined]
@@ -127,6 +142,27 @@ def export_graph_png(output_path: str = "translator_graph.png") -> str:
             # Fallback for older versions of LangGraph where ``get_graph`` was not
             # available. The compiled object itself is already a NetworkX graph.
             nx_graph = compiled_graph  # type: ignore[assignment]
+        
+        # Handle different LangGraph graph representations
+        if hasattr(nx_graph, 'to_networkx'):
+            # Newer LangGraph versions have a to_networkx method
+            nx_graph = nx_graph.to_networkx()
+        elif hasattr(nx_graph, 'nodes') and hasattr(nx_graph, 'edges'):
+            # It's already a NetworkX-compatible graph
+            pass
+        else:
+            # Create a simple graph manually if needed
+            simple_graph = nx.DiGraph()
+            # Add basic nodes based on what we know about the graph structure
+            simple_graph.add_nodes_from(['glossary_filter', 'human_review', 'translator'])
+            simple_graph.add_edges_from([
+                ('glossary_filter', 'human_review'),
+                ('human_review', 'translator')
+            ])
+            if include_review:
+                simple_graph.add_node('review')
+                simple_graph.add_edge('translator', 'review')
+            nx_graph = simple_graph
 
         # Use a deterministic layout so that the image does not change between
         # runs (crucial for snapshot testing and clean version control diffs).
@@ -161,7 +197,7 @@ def export_graph_png(output_path: str = "translator_graph.png") -> str:
     # Return the absolute path for convenience.
     return str(output_path.resolve())
 
-def visualize_graph(output_file: str = "translator_workflow.png", *, open_file: bool = True) -> str:
+def visualize_graph(output_file: str = "translator_workflow.png", *, open_file: bool = True, include_review: bool = False) -> str:
     """Visualise the **translation** LangGraph and persist the diagram.
 
     The function first attempts to leverage LangGraph's built-in
@@ -178,6 +214,8 @@ def visualize_graph(output_file: str = "translator_workflow.png", *, open_file: 
     open_file : bool, optional
         Whether to attempt opening the resulting file with the platform's
         default viewer.  Defaults to *True*.
+    include_review : bool, optional
+        Whether to include the review node in the visualization.
 
     Returns
     -------
@@ -199,7 +237,7 @@ def visualize_graph(output_file: str = "translator_workflow.png", *, open_file: 
     # This is a bit of a hack, but we need a checkpointer to create the graph.
     # We'll use a dummy one for visualization purposes.
     from langgraph.checkpoint.memory import InMemorySaver
-    app = create_translator(checkpointer=InMemorySaver())
+    app = create_translator(checkpointer=InMemorySaver(), include_review=include_review)
 
     # Normalise the user-supplied path.
     output_path = Path(output_file)
@@ -251,7 +289,8 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(description="Export the LangGraph network to a PNG file.")
     parser.add_argument("-o", "--output", default="translator_graph.png", help="Output PNG file path")
+    parser.add_argument("--review", action="store_true", help="Include review node in visualization")
     args = parser.parse_args()
 
-    path = export_graph_png(args.output)
+    path = export_graph_png(args.output, include_review=args.review)
     print(f"Graph saved to {Path(path).resolve()}") 

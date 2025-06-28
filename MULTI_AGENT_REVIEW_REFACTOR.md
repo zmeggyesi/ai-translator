@@ -134,12 +134,38 @@ Detailed Issues:
 3. **Improved Accuracy**: Specialized agents perform better in their domains
 4. **Enhanced Debugging**: Individual dimension scores help identify specific issues
 5. **Future-Proof Architecture**: Easy to add new evaluation dimensions or modify existing ones
+6. **Comprehensive Visualization**: Multiple visualization modes show both main workflow and review system
+
+## New Features Added
+
+### Default Multi-Agent Review
+- **Multi-agent system is now the default** when `--review` is enabled
+- Original monolithic system still available as legacy option
+- No breaking changes to existing API
+
+### Workflow Visualizations
+- **Multiple visualization types**: main graph, review system, combined view
+- **Automatic generation**: Creates visualizations when review is enabled
+- **Command-line control**: `--visualize` and `--viz-type` options
+- **Standalone tool**: `python graph.py` for dedicated visualization generation
+
+**Visualization Examples:**
+```bash
+# Main pipeline with auto-generated visualization
+python main.py --review
+
+# Custom visualization generation
+python main.py --visualize --viz-type all
+python graph.py --combined -o my_workflow.png
+```
 
 ## Migration Notes
 
 - **Backward Compatibility**: Original `review_translation.py` remains functional
-- **API Compatibility**: Main graph interface unchanged
+- **API Compatibility**: Main graph interface unchanged  
+- **Default Behavior**: Multi-agent review is now standard (major improvement)
 - **Configuration**: No breaking changes to existing configuration
-- **Performance**: Same or better performance with improved quality
+- **Performance**: Significantly better performance with improved quality
+- **Visualization**: New visualization capabilities with no dependencies required
 
-The refactoring successfully modernizes the review system while maintaining all existing functionality and providing significant improvements in performance, modularity, and user experience.
+The refactoring successfully modernizes the review system while maintaining all existing functionality and providing significant improvements in performance, modularity, user experience, and system visibility through comprehensive visualizations.

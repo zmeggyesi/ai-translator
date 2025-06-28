@@ -67,6 +67,17 @@ def main():
         action="store_true",
         help="Enable automatic translation review and scoring"
     )
+    parser.add_argument(
+        "--visualize",
+        action="store_true",
+        help="Generate visualization diagrams of the workflow"
+    )
+    parser.add_argument(
+        "--viz-type",
+        choices=["main", "review", "combined", "all"],
+        default="combined",
+        help="Type of visualization to generate (default: combined when review is enabled)"
+    )
     args = parser.parse_args()
 
     # Handle backward compatibility
@@ -236,6 +247,43 @@ def main():
             print(f"\nDetailed Issues:")
             for issue in individual_issues:
                 print(f"  - {issue}")
+
+    # Generate visualizations if requested
+    if args.visualize or (args.review and args.viz_type != "main"):
+        from graph import export_graph_png, export_review_graph_png, export_combined_graph_png
+        
+        print(f"\n--- Generating Visualizations ---")
+        
+        if args.viz_type == "all":
+            # Generate all visualization types
+            main_path = export_graph_png("main_graph.png", include_review=args.review)
+            review_path = export_review_graph_png("review_system.png")
+            combined_path = export_combined_graph_png("combined_workflow.png")
+            
+            print(f"Main workflow: {main_path}")
+            print(f"Review system: {review_path}")
+            print(f"Combined view: {combined_path}")
+            
+        elif args.viz_type == "review":
+            path = export_review_graph_png("review_system.png")
+            print(f"Review system visualization: {path}")
+            
+        elif args.viz_type == "combined":
+            path = export_combined_graph_png("combined_workflow.png")
+            print(f"Combined workflow visualization: {path}")
+            
+        else:  # main
+            path = export_graph_png("main_graph.png", include_review=args.review)
+            print(f"Main workflow visualization: {path}")
+    
+    elif args.review:
+        # Auto-generate combined view when review is enabled (unless explicitly disabled)
+        try:
+            from graph import export_combined_graph_png
+            path = export_combined_graph_png("workflow_with_review.png")
+            print(f"\nWorkflow visualization generated: {path}")
+        except Exception as e:
+            logger.debug(f"Could not generate visualization: {e}")
 
 if __name__ == "__main__":
     main()

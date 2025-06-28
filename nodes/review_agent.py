@@ -24,11 +24,12 @@ from nodes.review_glossary_faithfulness import evaluate_glossary_faithfulness
 from nodes.review_grammar_correctness import evaluate_grammar_correctness
 from nodes.review_style_adherence import evaluate_style_adherence
 from nodes.review_aggregator import aggregate_review_scores
+from nodes.review_tmx_faithfulness import evaluate_tmx_faithfulness
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-def create_review_agent(checkpointer: BaseCheckpointSaver = None):
+def create_review_agent(checkpointer: BaseCheckpointSaver = None, include_tmx: bool = False):
     """
     Creates and compiles the multi-agent translation review graph.
     
@@ -36,14 +37,15 @@ def create_review_agent(checkpointer: BaseCheckpointSaver = None):
     between specialized evaluation nodes, allowing for efficient and
     focused assessment of translation quality.
     
-    Graph topology:
+    Graph topology (with TMX):
     
-    [glossary_faithfulness] → [grammar_correctness] → [style_adherence] → [aggregator] → END
-                           ↘                      ↘
-                             [aggregator] ← [aggregator]
+    [glossary_faithfulness] → [tmx_faithfulness] → [grammar_correctness] → [style_adherence] → [aggregator] → END
+                           ↘                   ↘                      ↘
+                             [aggregator] ← [aggregator] ← [aggregator]
     
     Args:
         checkpointer: Optional checkpoint saver for state persistence
+        include_tmx: Whether to include TMX faithfulness evaluation
     
     Returns:
         Compiled LangGraph for translation review
@@ -55,6 +57,8 @@ def create_review_agent(checkpointer: BaseCheckpointSaver = None):
     
     # Add specialized review nodes
     review_graph.add_node("glossary_faithfulness", evaluate_glossary_faithfulness)
+    if include_tmx:
+        review_graph.add_node("tmx_faithfulness", evaluate_tmx_faithfulness)
     review_graph.add_node("grammar_correctness", evaluate_grammar_correctness) 
     review_graph.add_node("style_adherence", evaluate_style_adherence)
     review_graph.add_node("aggregator", aggregate_review_scores)
@@ -78,7 +82,7 @@ def create_review_agent(checkpointer: BaseCheckpointSaver = None):
     return compiled_graph
 
 
-def review_translation_multi_agent(state: TranslationState, checkpointer: BaseCheckpointSaver = None) -> dict:
+def review_translation_multi_agent(state: TranslationState, checkpointer: BaseCheckpointSaver = None, include_tmx: bool = False) -> dict:
     """
     Main function to review a translation using the multi-agent approach.
     
@@ -88,14 +92,19 @@ def review_translation_multi_agent(state: TranslationState, checkpointer: BaseCh
     Args:
         state: TranslationState containing translation and evaluation criteria
         checkpointer: Optional checkpoint saver for state persistence
+        include_tmx: Whether to include TMX faithfulness evaluation
     
     Returns:
         dict: Updated state with review scores and explanations
     """
     logger.info("Starting multi-agent translation review...")
     
+    # Determine if TMX should be included based on state or parameter
+    if not include_tmx and state.get("tmx_memory"):
+        include_tmx = True
+    
     # Create the review graph
-    review_graph = create_review_agent(checkpointer)
+    review_graph = create_review_agent(checkpointer, include_tmx=include_tmx)
     
     # Execute the review workflow
     try:

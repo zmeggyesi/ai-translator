@@ -24,6 +24,7 @@ import logging
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from state import TranslationState
+from nodes.tmx_loader import find_tmx_matches
 import os
 
 # Configure logging
@@ -40,13 +41,15 @@ You MUST adhere to the following instructions:
 1.  **Style Guide**: {style_guide}
 2.  **Glossary**: Strictly use the translations provided in this JSON object for any applicable terms:
     {glossary}
+3.  **Translation Memory**: {tmx_guidance}
 
 Output only the translated text in {target_language}.
 """
 
 def translate_content(state: TranslationState) -> dict:
     """
-    Translates the original content based on the filtered glossary and style guide.
+    Translates the original content based on the filtered glossary, style guide, and TMX memory.
+    Uses exact TMX matches when available, otherwise uses fuzzy matches for style guidance.
     """
     logger.info(f"Translating content from {state['source_language']} to {state['target_language']}...")
     
@@ -55,6 +58,34 @@ def translate_content(state: TranslationState) -> dict:
         if not os.getenv("OPENAI_API_KEY"):
             logger.error("OPENAI_API_KEY is not set in environment variables!")
             return {"translated_content": "ERROR: OpenAI API key not found. Please set OPENAI_API_KEY in your .env file."}
+        
+        # Check for TMX exact matches first
+        tmx_guidance = "No translation memory entries available."
+        tmx_memory = state.get("tmx_memory", {})
+        
+        if tmx_memory and "entries" in tmx_memory:
+            tmx_entries = tmx_memory["entries"]
+            
+            # Look for exact matches (100% similarity)
+            exact_matches = find_tmx_matches(state["original_content"], tmx_entries, threshold=100.0)
+            
+            if exact_matches:
+                # Use the first exact match (highest usage count)
+                best_match = exact_matches[0]
+                logger.info(f"Found exact TMX match: '{best_match['source']}' -> '{best_match['target']}'")
+                return {"translated_content": best_match["target"]}
+            
+            # Look for fuzzy matches for style guidance (80%+ similarity)
+            fuzzy_matches = find_tmx_matches(state["original_content"], tmx_entries, threshold=80.0)
+            
+            if fuzzy_matches:
+                tmx_guidance = "Use the following translation memory examples for style and terminology guidance:\n"
+                for i, match in enumerate(fuzzy_matches[:3]):  # Top 3 matches
+                    tmx_guidance += f"- Source: \"{match['source']}\" -> Target: \"{match['target']}\" (similarity: {match['similarity']:.1f}%)\n"
+                
+                logger.info(f"Found {len(fuzzy_matches)} fuzzy TMX matches for style guidance")
+            else:
+                logger.info("No TMX matches found above threshold")
         
         prompt = ChatPromptTemplate.from_template(TRANSLATION_PROMPT)
         llm = ChatOpenAI(model="gpt-4o", temperature=0)
@@ -68,6 +99,7 @@ def translate_content(state: TranslationState) -> dict:
             "original_content": state["original_content"],
             "style_guide": state["style_guide"],
             "glossary": json.dumps(glossary, ensure_ascii=False),
+            "tmx_guidance": tmx_guidance,
             "source_language": state["source_language"],
             "target_language": state["target_language"],
         })

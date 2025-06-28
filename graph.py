@@ -18,7 +18,7 @@ from state import TranslationState
 from nodes.filter_glossary import filter_glossary
 from nodes.translate_content import translate_content
 from nodes.human_review import human_review
-from nodes.review_translation import review_translation
+from nodes.review_agent import review_translation_multi_agent
 from langgraph.checkpoint.base import BaseCheckpointSaver
 
 def create_translator(checkpointer: BaseCheckpointSaver, include_review: bool = False):
@@ -36,7 +36,12 @@ def create_translator(checkpointer: BaseCheckpointSaver, include_review: bool = 
     graph.add_node("translator", translate_content)
     
     if include_review:
-        graph.add_node("review", review_translation)
+        # Wrapper function to integrate multi-agent review into main graph
+        def review_wrapper(state: TranslationState) -> dict:
+            """Wrapper to call the multi-agent review system."""
+            return review_translation_multi_agent(state, checkpointer)
+        
+        graph.add_node("review", review_wrapper)
 
     graph.set_entry_point("glossary_filter")
     graph.add_edge("glossary_filter", "human_review")

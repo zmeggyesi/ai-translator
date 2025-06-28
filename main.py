@@ -195,7 +195,7 @@ def main():
         score = final_state.get("review_score")
         explanation = final_state.get("review_explanation", "")
         
-        print(f"Review Score: {score:.2f} (on scale from -1.0 to 1.0)")
+        print(f"Overall Review Score: {score:.2f} (on scale from -1.0 to 1.0)")
         
         if score >= 0.7:
             print("Quality Assessment: Good to Excellent")
@@ -206,10 +206,36 @@ def main():
         else:
             print("Quality Assessment: Very Poor - Major Revision Required")
         
+        # Show detailed breakdown from multi-agent review
+        print(f"\n--- Detailed Score Breakdown ---")
+        glossary_score = final_state.get("glossary_faithfulness_score")
+        grammar_score = final_state.get("grammar_correctness_score")
+        style_score = final_state.get("style_adherence_score")
+        
+        if glossary_score is not None:
+            print(f"Glossary Faithfulness: {glossary_score:.2f}")
+        if grammar_score is not None:
+            print(f"Grammar Correctness: {grammar_score:.2f}")
+        if style_score is not None:
+            print(f"Style Adherence: {style_score:.2f}")
+        
         if explanation:
-            print(f"Review Explanation: {explanation}")
+            print(f"\nReview Explanation: {explanation}")
         else:
-            print("Review Explanation: None needed (score is sufficiently high)")
+            print("\nReview Explanation: None needed (score is sufficiently high)")
+        
+        # Show individual dimension explanations if available
+        dimension_explanations = [
+            ("Glossary", final_state.get("glossary_faithfulness_explanation", "")),
+            ("Grammar", final_state.get("grammar_correctness_explanation", "")),
+            ("Style", final_state.get("style_adherence_explanation", ""))
+        ]
+        
+        individual_issues = [f"{dim}: {expl}" for dim, expl in dimension_explanations if expl]
+        if individual_issues:
+            print(f"\nDetailed Issues:")
+            for issue in individual_issues:
+                print(f"  - {issue}")
 
 if __name__ == "__main__":
     main()

@@ -136,33 +136,56 @@ A Mermaid diagram of the graph will be written to `graph-visualization.md`.
 
 #### Translation Review (Optional)
 
-The pipeline includes an optional automatic review system that evaluates translation quality on three key dimensions:
+The pipeline includes an optional **multi-agent review system** that evaluates translation quality using specialized agents for comprehensive assessment:
 
-1. **Overall Quality**: Grammar, fluency, and naturalness in the target language
-2. **Faithfulness to Glossary**: Correct usage of specified terminology
-3. **Adherence to Style Guide**: Following the prescribed tone and style
+**Multi-Agent Architecture:**
+- **Glossary Faithfulness Agent**: Non-LLM based evaluation using fuzzy matching to verify correct terminology usage
+- **Grammar Correctness Agent**: LLM-based evaluation focused exclusively on grammatical accuracy and linguistic structure  
+- **Style Adherence Agent**: LLM-based evaluation for tone, voice, and style guide compliance
+- **Review Aggregator**: Combines individual scores using weighted averages
+
+**Key Benefits:**
+- **Performance**: Specialized agents with focused prompts are more efficient than monolithic evaluation
+- **Token Efficiency**: Each agent has a specific scope, reducing token usage per evaluation
+- **Modularity**: Individual agents can be tested, modified, and improved independently
+- **Early Termination**: Poor scores in critical dimensions can trigger early completion for efficiency
+
+**Evaluation Dimensions:**
+1. **Glossary Faithfulness** (40% weight): Correct usage of specified terminology
+2. **Grammar Correctness** (35% weight): Grammar, fluency, and naturalness in the target language
+3. **Style Adherence** (25% weight): Following the prescribed tone and style guide
 
 **Scoring System:**
 - **1.0**: Excellent - Perfect translation with flawless quality, terminology, and style
 - **0.7-0.9**: Good - High quality with minor issues
 - **0.3-0.6**: Acceptable - Average quality with some noticeable issues  
 - **0.0-0.2**: Poor - Significant issues requiring revision
-- **-1.0 to -0.1**: Very poor - Major errors, incorrect terminology, or wrong style
+- **-1.0 to -0.1**: Very Poor - Major problems requiring substantial rework
 
 **Usage:**
 ```bash
 # Enable review as part of the main pipeline
 python main.py --review
 
-# Standalone review of existing translation
-python -m nodes.review_translation \
+# Standalone multi-agent review of existing translation
+python -m nodes.review_agent \
   --original data/input.txt \
   --translation data/my_translation.txt \
   --glossary data/glossary.csv \
-  --style-guide data/style_guide.md
+  --style-guide data/style_guide.md \
+  --breakdown  # Show detailed score breakdown
+
+# Legacy single-agent review (still available)
+python -m nodes.review_translation \
+  --original data/input.txt \
+  --translation data/my_translation.txt
 ```
 
-When the review score is ≥ 0.7, only the score is provided. For lower scores, a detailed explanation is included to guide improvements.
+**Review Process:**
+- Agent Communication Protocol (ACP) handoffs coordinate between specialized evaluators
+- Only dimensions scoring below 0.7 receive detailed explanations
+- Individual dimension scores and explanations are shown in the detailed breakdown
+- The system prioritizes actionable feedback for improvement
 
 ### 4. Run the test-suite
 

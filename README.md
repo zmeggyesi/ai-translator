@@ -8,15 +8,16 @@ The pipeline is intentionally small (three nodes) so the focus stays on the arch
 ## Workflow Overview
 
 ```
-      ┌───────────────────┐        ┌───────────────────┐        ┌───────────────────┐
-      │  glossary_filter  │──▶──▶──│   human_review    │──▶──▶──│    translator     │──▶──▶── END
-      └───────────────────┘        └───────────────────┘        └───────────────────┘
-           (RapidFuzz)                (Human-in-the-loop)            (OpenAI LLM)
+      ┌───────────────────┐        ┌───────────────────┐        ┌───────────────────┐        ┌───────────────────┐
+      │  glossary_filter  │──▶──▶──│   human_review    │──▶──▶──│    translator     │──▶──▶──│      review       │──▶──▶── END
+      └───────────────────┘        └───────────────────┘        └───────────────────┘        └───────────────────┘
+           (RapidFuzz)                (Human-in-the-loop)            (OpenAI LLM)               (Quality Assessment)
 ```
 
 1. **Glossary Filter** – Scans the source text and keeps **only** the glossary terms that actually appear (RapidFuzz fuzzy-matching, score ≥ 75).
 2. **Human Review** – Pauses execution to allow human review and modification of the filtered glossary before translation.
 3. **Translator** – Crafts a prompt embedding the style guide & the filtered glossary, then calls `gpt-4o` (or a mocked model during tests) to obtain the translated content.
+4. **Review** (optional) – Evaluates translation quality, glossary faithfulness, and style guide adherence with a score from -1.0 to 1.0.
 
 Both nodes return *partial* state updates which LangGraph merges into the global `TranslationState` object, keeping the nodes completely decoupled.
 
@@ -33,7 +34,8 @@ translation/
 │   ├── __init__.py
 │   ├── filter_glossary.py
 │   ├── human_review.py
-│   └── translate_content.py
+│   ├── translate_content.py
+│   └── review_translation.py
 ├── tests/                # pytest unit tests with extensive mocking
 │   ├── test_filter_glossary.py
 │   ├── test_translate_content.py
@@ -92,6 +94,14 @@ python main.py -i data/doc.txt -g data/terms.csv -s data/guide.md
 # Combine all options
 python main.py -sl English -tl Spanish -i data/technical_doc.txt -g data/tech_glossary.csv -s data/technical_style.md
 
+# Enable automatic translation review (multi-agent system)
+python main.py --review
+python main.py -sl English -tl French --review
+
+# Generate workflow visualizations  
+python main.py --visualize --viz-type all
+python main.py --review --visualize --viz-type combined
+
 # Backward compatibility (deprecated)
 python main.py --language French  # Same as --target-language French
 python main.py -l German          # Same as -tl German
@@ -104,6 +114,9 @@ python main.py -l German          # Same as -tl German
 - `-i, --input`: Input file path (default: data/input.txt)
 - `-g, --glossary`: Glossary CSV file path (default: data/glossary.csv)  
 - `-s, --style-guide`: Style guide file path (default: data/style_guide.md)
+- `--review`: Enable automatic translation review and scoring (uses multi-agent system by default)
+- `--visualize`: Generate visualization diagrams of the workflow  
+- `--viz-type {main,review,combined,all}`: Type of visualization to generate (default: combined when review is enabled)
 - `-l, --language`: **Deprecated** - use `--target-language` instead
 
 #### Human-in-the-loop Review
@@ -127,7 +140,89 @@ To provide a new glossary, enter a JSON string. Otherwise, press Enter to contin
 
 A Mermaid diagram of the graph will be written to `graph-visualization.md`.
 
-### 4. Run the test-suite
+#### Translation Review (Optional)
+
+The pipeline includes an optional **multi-agent review system** that evaluates translation quality using specialized agents for comprehensive assessment:
+
+**Multi-Agent Architecture:**
+- **Glossary Faithfulness Agent**: Non-LLM based evaluation using fuzzy matching to verify correct terminology usage
+- **Grammar Correctness Agent**: LLM-based evaluation focused exclusively on grammatical accuracy and linguistic structure  
+- **Style Adherence Agent**: LLM-based evaluation for tone, voice, and style guide compliance
+- **Review Aggregator**: Combines individual scores using weighted averages
+
+**Key Benefits:**
+- **Performance**: Specialized agents with focused prompts are more efficient than monolithic evaluation
+- **Token Efficiency**: Each agent has a specific scope, reducing token usage per evaluation
+- **Modularity**: Individual agents can be tested, modified, and improved independently
+- **Early Termination**: Poor scores in critical dimensions can trigger early completion for efficiency
+
+**Evaluation Dimensions:**
+1. **Glossary Faithfulness** (40% weight): Correct usage of specified terminology
+2. **Grammar Correctness** (35% weight): Grammar, fluency, and naturalness in the target language
+3. **Style Adherence** (25% weight): Following the prescribed tone and style guide
+
+**Scoring System:**
+- **1.0**: Excellent - Perfect translation with flawless quality, terminology, and style
+- **0.7-0.9**: Good - High quality with minor issues
+- **0.3-0.6**: Acceptable - Average quality with some noticeable issues  
+- **0.0-0.2**: Poor - Significant issues requiring revision
+- **-1.0 to -0.1**: Very Poor - Major problems requiring substantial rework
+
+**Usage:**
+```bash
+# Enable review as part of the main pipeline
+python main.py --review
+
+# Standalone multi-agent review of existing translation
+python -m nodes.review_agent \
+  --original data/input.txt \
+  --translation data/my_translation.txt \
+  --glossary data/glossary.csv \
+  --style-guide data/style_guide.md \
+  --breakdown  # Show detailed score breakdown
+
+# Legacy single-agent review (still available)
+python -m nodes.review_translation \
+  --original data/input.txt \
+  --translation data/my_translation.txt
+```
+
+**Review Process:**
+- Agent Communication Protocol (ACP) handoffs coordinate between specialized evaluators
+- Only dimensions scoring below 0.7 receive detailed explanations
+- Individual dimension scores and explanations are shown in the detailed breakdown
+- The system prioritizes actionable feedback for improvement
+
+### 4. Workflow Visualizations
+
+The system can generate comprehensive visualizations of the translation workflow, including the multi-agent review system:
+
+```bash
+# Generate all visualization types
+python graph.py --all
+
+# Generate specific visualization types
+python graph.py --review-only -o review_system.png
+python graph.py --combined -o complete_workflow.png
+python graph.py --main-only --review -o main_with_review.png
+
+# Generate visualizations as part of translation
+python main.py --review --visualize --viz-type combined
+```
+
+**Available Visualization Types:**
+- **Main Graph**: Shows the primary translation workflow (glossary filtering, human review, translation)
+- **Review System**: Detailed view of the multi-agent review system with handoff flows
+- **Combined View**: Comprehensive visualization showing both main workflow and review system integration
+- **All Types**: Generates all three visualization types
+
+**Generated Files:**
+- `main_graph.png`: Main translation pipeline
+- `review_system.png`: Multi-agent review system architecture  
+- `combined_workflow.png`: Complete end-to-end process flow
+- `workflow_with_review.png`: Auto-generated when review is enabled
+
+### 5. Run the test-suite
 
 ```bash
 pytest -q

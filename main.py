@@ -62,6 +62,22 @@ def main():
         type=str,
         help="Target language for translation (deprecated, use --target-language instead)"
     )
+    parser.add_argument(
+        "--review",
+        action="store_true",
+        help="Enable automatic translation review and scoring"
+    )
+    parser.add_argument(
+        "--visualize",
+        action="store_true",
+        help="Generate visualization diagrams of the workflow"
+    )
+    parser.add_argument(
+        "--viz-type",
+        choices=["main", "review", "combined", "all"],
+        default="combined",
+        help="Type of visualization to generate (default: combined when review is enabled)"
+    )
     args = parser.parse_args()
 
     # Handle backward compatibility
@@ -75,6 +91,8 @@ def main():
 
     logger = logging.getLogger(__name__)
     logger.info(f"Starting translation from {args.source_language} to {target_language}")
+    if args.review:
+        logger.info("Translation review is enabled")
 
     # 1. Load data
     try:
@@ -136,7 +154,7 @@ def main():
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
 
-    translator_app = create_translator(checkpointer=checkpointer)
+    translator_app = create_translator(checkpointer=checkpointer, include_review=args.review)
     initial_state = {
         "original_content": original_content,
         "glossary": glossary,
@@ -181,6 +199,91 @@ def main():
     print(original_content)
     print(f"\n--- Translated Content ({args.source_language} → {target_language}) ---")
     print(final_state.get("translated_content"))
+    
+    # Print review results if enabled
+    if args.review and final_state.get("review_score") is not None:
+        print(f"\n--- Translation Review ---")
+        score = final_state.get("review_score")
+        explanation = final_state.get("review_explanation", "")
+        
+        print(f"Overall Review Score: {score:.2f} (on scale from -1.0 to 1.0)")
+        
+        if score >= 0.7:
+            print("Quality Assessment: Good to Excellent")
+        elif score >= 0.3:
+            print("Quality Assessment: Acceptable")
+        elif score >= 0.0:
+            print("Quality Assessment: Poor - Needs Improvement")
+        else:
+            print("Quality Assessment: Very Poor - Major Revision Required")
+        
+        # Show detailed breakdown from multi-agent review
+        print(f"\n--- Detailed Score Breakdown ---")
+        glossary_score = final_state.get("glossary_faithfulness_score")
+        grammar_score = final_state.get("grammar_correctness_score")
+        style_score = final_state.get("style_adherence_score")
+        
+        if glossary_score is not None:
+            print(f"Glossary Faithfulness: {glossary_score:.2f}")
+        if grammar_score is not None:
+            print(f"Grammar Correctness: {grammar_score:.2f}")
+        if style_score is not None:
+            print(f"Style Adherence: {style_score:.2f}")
+        
+        if explanation:
+            print(f"\nReview Explanation: {explanation}")
+        else:
+            print("\nReview Explanation: None needed (score is sufficiently high)")
+        
+        # Show individual dimension explanations if available
+        dimension_explanations = [
+            ("Glossary", final_state.get("glossary_faithfulness_explanation", "")),
+            ("Grammar", final_state.get("grammar_correctness_explanation", "")),
+            ("Style", final_state.get("style_adherence_explanation", ""))
+        ]
+        
+        individual_issues = [f"{dim}: {expl}" for dim, expl in dimension_explanations if expl]
+        if individual_issues:
+            print(f"\nDetailed Issues:")
+            for issue in individual_issues:
+                print(f"  - {issue}")
+
+    # Generate visualizations if requested
+    if args.visualize or (args.review and args.viz_type != "main"):
+        from graph import export_graph_png, export_review_graph_png, export_combined_graph_png
+        
+        print(f"\n--- Generating Visualizations ---")
+        
+        if args.viz_type == "all":
+            # Generate all visualization types
+            main_path = export_graph_png("main_graph.png", include_review=args.review)
+            review_path = export_review_graph_png("review_system.png")
+            combined_path = export_combined_graph_png("combined_workflow.png")
+            
+            print(f"Main workflow: {main_path}")
+            print(f"Review system: {review_path}")
+            print(f"Combined view: {combined_path}")
+            
+        elif args.viz_type == "review":
+            path = export_review_graph_png("review_system.png")
+            print(f"Review system visualization: {path}")
+            
+        elif args.viz_type == "combined":
+            path = export_combined_graph_png("combined_workflow.png")
+            print(f"Combined workflow visualization: {path}")
+            
+        else:  # main
+            path = export_graph_png("main_graph.png", include_review=args.review)
+            print(f"Main workflow visualization: {path}")
+    
+    elif args.review:
+        # Auto-generate combined view when review is enabled (unless explicitly disabled)
+        try:
+            from graph import export_combined_graph_png
+            path = export_combined_graph_png("workflow_with_review.png")
+            print(f"\nWorkflow visualization generated: {path}")
+        except Exception as e:
+            logger.debug(f"Could not generate visualization: {e}")
 
 if __name__ == "__main__":
     main()

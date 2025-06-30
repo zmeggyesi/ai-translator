@@ -1,8 +1,8 @@
 # Translation Pipeline – LangGraph × LangChain
 
-This project is a **minimal yet production-grade** example of how to combine [LangGraph](https://github.com/langchain-ai/langgraph) with [LangChain](https://github.com/langchain-ai/langchain) to build a translation workflow that enforces both a *style guide* and a *domain-specific glossary*.
+This project is a **minimal yet production-grade** example of how to combine [LangGraph](https://github.com/langchain-ai/langgraph) with [LangChain](https://github.com/langchain-ai/langchain) to build a translation workflow that enforces a *style guide*, a *domain-specific glossary*, and leverages *TMX (Translation Memory eXchange)* files for consistency and quality.
 
-The pipeline is intentionally small (three nodes) so the focus stays on the architecture and testing discipline rather than on lavish prompt engineering.
+The pipeline is intentionally small (three core nodes) so the focus stays on the architecture and testing discipline rather than on lavish prompt engineering, while providing enterprise-grade translation memory capabilities.
 
 ---
 ## Workflow Overview
@@ -16,8 +16,8 @@ The pipeline is intentionally small (three nodes) so the focus stays on the arch
 
 1. **Glossary Filter** – Scans the source text and keeps **only** the glossary terms that actually appear (RapidFuzz fuzzy-matching, score ≥ 75).
 2. **Human Review** – Pauses execution to allow human review and modification of the filtered glossary before translation.
-3. **Translator** – Crafts a prompt embedding the style guide & the filtered glossary, then calls `gpt-4o` (or a mocked model during tests) to obtain the translated content.
-4. **Review** (optional) – Evaluates translation quality, glossary faithfulness, and style guide adherence with a score from -1.0 to 1.0.
+3. **Translator** – Integrates TMX translation memory, uses exact TMX matches verbatim when available, or leverages fuzzy TMX matches for style guidance. Crafts a prompt embedding the style guide, filtered glossary, and TMX guidance, then calls `gpt-4o` to obtain the translated content.
+4. **Review** (optional) – Multi-agent evaluation of translation quality including glossary faithfulness, grammar correctness, style adherence, and TMX compliance with scores from -1.0 to 1.0.
 
 Both nodes return *partial* state updates which LangGraph merges into the global `TranslationState` object, keeping the nodes completely decoupled.
 
@@ -26,25 +26,36 @@ Both nodes return *partial* state updates which LangGraph merges into the global
 
 ```
 translation/
-├── data/                 # Example input, glossary and style guide
+├── data/                 # Example input, glossary, style guide, and TMX files
 │   ├── glossary.csv
 │   ├── input.txt
+│   ├── sample.tmx        # Sample TMX translation memory file
 │   └── style_guide.md
 ├── nodes/                # Individual LangGraph nodes
 │   ├── __init__.py
 │   ├── filter_glossary.py
 │   ├── human_review.py
+│   ├── review_aggregator.py
+│   ├── review_glossary_faithfulness.py
+│   ├── review_grammar_correctness.py
+│   ├── review_style_adherence.py
+│   ├── review_tmx_faithfulness.py  # TMX faithfulness evaluation
+│   ├── review_agent.py   # Multi-agent review coordination
+│   ├── tmx_loader.py     # TMX parsing and matching functionality
 │   ├── translate_content.py
 │   └── review_translation.py
 ├── tests/                # pytest unit tests with extensive mocking
 │   ├── test_filter_glossary.py
+│   ├── test_tmx_functionality.py  # Comprehensive TMX testing
 │   ├── test_translate_content.py
 │   └── test_graph_visualization.py
 ├── graph.py              # Graph wiring – defines the node topology
-├── main.py               # Example CLI entry-point that runs the full graph
+├── main.py               # CLI entry-point with TMX support
 ├── state.py              # TypedDict shared state definition
-├── pyproject.toml        # Poetry-compatible metadata + dependencies
+├── pyproject.toml        # UV-compatible metadata + dependencies
 ├── uv.lock               # Machine-generated lock-file (UV)
+├── TMX_INTEGRATION.md    # Technical TMX integration documentation
+├── TMX_CLI_USAGE.md      # TMX CLI usage guide
 └── README.md             # You are here ✔
 ```
 
@@ -91,8 +102,12 @@ python main.py -sl German -tl English
 python main.py --input data/my_document.txt --glossary data/my_glossary.csv --style-guide data/my_style.md
 python main.py -i data/doc.txt -g data/terms.csv -s data/guide.md
 
-# Combine all options
-python main.py -sl English -tl Spanish -i data/technical_doc.txt -g data/tech_glossary.csv -s data/technical_style.md
+# Translation with TMX memory
+python main.py --tmx data/sample.tmx
+python main.py -t data/my_translations.tmx --source-language en --target-language fr
+
+# Combine all options with TMX
+python main.py -sl English -tl Spanish -i data/technical_doc.txt -g data/tech_glossary.csv -s data/technical_style.md -t data/tech_memory.tmx
 
 # Enable automatic translation review (multi-agent system)
 python main.py --review
@@ -114,6 +129,7 @@ python main.py -l German          # Same as -tl German
 - `-i, --input`: Input file path (default: data/input.txt)
 - `-g, --glossary`: Glossary CSV file path (default: data/glossary.csv)  
 - `-s, --style-guide`: Style guide file path (default: data/style_guide.md)
+- `-t, --tmx`: TMX (Translation Memory eXchange) file path for leveraging translation memory
 - `--review`: Enable automatic translation review and scoring (uses multi-agent system by default)
 - `--visualize`: Generate visualization diagrams of the workflow  
 - `--viz-type {main,review,combined,all}`: Type of visualization to generate (default: combined when review is enabled)
@@ -157,9 +173,10 @@ The pipeline includes an optional **multi-agent review system** that evaluates t
 - **Early Termination**: Poor scores in critical dimensions can trigger early completion for efficiency
 
 **Evaluation Dimensions:**
-1. **Glossary Faithfulness** (40% weight): Correct usage of specified terminology
-2. **Grammar Correctness** (35% weight): Grammar, fluency, and naturalness in the target language
-3. **Style Adherence** (25% weight): Following the prescribed tone and style guide
+1. **Glossary Faithfulness** (30% weight): Correct usage of specified terminology
+2. **Grammar Correctness** (30% weight): Grammar, fluency, and naturalness in the target language
+3. **Style Adherence** (20% weight): Following the prescribed tone and style guide
+4. **TMX Faithfulness** (20% weight): Consistency with translation memory patterns and exact match usage (when TMX is provided)
 
 **Scoring System:**
 - **1.0**: Excellent - Perfect translation with flawless quality, terminology, and style
@@ -253,12 +270,54 @@ The style guide can be any text file (Markdown recommended) containing translati
 - Be concise but clear
 ```
 
+### TMX File Format
+TMX (Translation Memory eXchange) files follow the industry-standard XML format for sharing translation memories. The system supports TMX 1.4+ format:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<tmx version="1.4">
+  <header>
+    <prop type="x-filename">sample.tmx</prop>
+  </header>
+  <body>
+    <tu tuid="1" usagecount="1">
+      <tuv xml:lang="en">
+        <seg>Hello world</seg>
+      </tuv>
+      <tuv xml:lang="fr">
+        <seg>Bonjour le monde</seg>
+      </tuv>
+    </tu>
+    <tu tuid="2" usagecount="5">
+      <tuv xml:lang="en">
+        <seg>Welcome to our application</seg>
+      </tuv>
+      <tuv xml:lang="fr">
+        <seg>Bienvenue dans notre application</seg>
+      </tuv>
+    </tu>
+  </body>
+</tmx>
+```
+
+**TMX Integration Features:**
+- **Exact Matches**: Segments with 100% similarity are used verbatim, bypassing LLM translation for maximum consistency
+- **Fuzzy Matches**: Segments with 80%+ similarity provide style guidance to the LLM
+- **Bidirectional Support**: Works with both source→target and target→source language pairs
+- **Quality Validation**: TMX faithfulness evaluation ensures translations align with memory patterns
+
+For more details, see `TMX_CLI_USAGE.md` and `TMX_INTEGRATION.md`.
+
 ---
 ## Extending the Pipeline
 
-* **Add quality-assurance nodes** – e.g. back-translation consistency check.
-* **Persist history** – swap the in-memory `messages` list for a vector store.
+The system already includes enterprise-grade TMX (Translation Memory eXchange) support with exact matching, fuzzy matching, and quality validation. Additional extensions you could add:
+
+* **Enhanced TMX features** – Add TMX writing capabilities, usage statistics tracking, or advanced fuzzy matching algorithms.
+* **Additional quality-assurance nodes** – e.g. back-translation consistency check, readability analysis.
+* **Persist history** – swap the in-memory `messages` list for a vector store or database.
 * **Alternative models** – patch `ChatOpenAI` with Anthropic/LLM of choice; the fallback logic in `translate_content.py` keeps tests untouched.
-* **Custom glossary formats** – extend the loader in `main.py` to support JSON, YAML, or database sources.
+* **Custom file format support** – extend loaders to support additional formats like XLIFF, JSON, YAML, or database sources.
+* **Translation memory learning** – automatically build TMX files from high-scoring translations.
 
 PRs welcome 🎉

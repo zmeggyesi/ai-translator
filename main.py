@@ -56,6 +56,11 @@ def main():
         default="data/style_guide.md",
         help="Style guide file path (default: data/style_guide.md)"
     )
+    parser.add_argument(
+        "-t", "--tmx",
+        type=str,
+        help="TMX (Translation Memory eXchange) file path for translation memory"
+    )
     # Keep backward compatibility with -l/--language for target language
     parser.add_argument(
         "-l", "--language",
@@ -149,12 +154,44 @@ def main():
         logger.error(f"Error reading style guide file: {e}")
         return
 
+    # Load TMX translation memory if provided
+    tmx_memory = None
+    if args.tmx:
+        try:
+            from nodes.tmx_loader import load_tmx_memory
+            logger.info(f"Loading TMX translation memory from {args.tmx}")
+            
+            # Create a temporary state for loading TMX
+            temp_state = {
+                "source_language": args.source_language,
+                "target_language": target_language
+            }
+            
+            tmx_result = load_tmx_memory(temp_state, args.tmx)
+            tmx_memory = tmx_result.get("tmx_memory", {})
+            
+            if tmx_memory and "entries" in tmx_memory:
+                entries_count = len(tmx_memory["entries"])
+                if entries_count > 0:
+                    logger.info(f"Loaded {entries_count} TMX entries for {tmx_memory.get('language_pair', 'unknown language pair')}")
+                else:
+                    logger.warning(f"No TMX entries found for language pair {args.source_language}->{target_language}")
+            else:
+                logger.warning("TMX file loaded but no usable entries found")
+                
+        except FileNotFoundError:
+            logger.error(f"TMX file not found: {args.tmx}")
+            return
+        except Exception as e:
+            logger.error(f"Error reading TMX file {args.tmx}: {e}")
+            return
+
     # 2. Create and run the graph
     checkpointer = InMemorySaver()
     thread_id = str(uuid.uuid4())
     config = {"configurable": {"thread_id": thread_id}}
 
-    translator_app = create_translator(checkpointer=checkpointer, include_review=args.review)
+    translator_app = create_translator(checkpointer=checkpointer, include_review=args.review, include_tmx=bool(args.tmx))
     initial_state = {
         "original_content": original_content,
         "glossary": glossary,
@@ -163,6 +200,10 @@ def main():
         "target_language": target_language,
         "messages": [], # Initialize messages list
     }
+    
+    # Add TMX memory to initial state if available
+    if tmx_memory:
+        initial_state["tmx_memory"] = tmx_memory
 
     # First invocation
     result = translator_app.invoke(initial_state, config=config)
@@ -222,6 +263,7 @@ def main():
         glossary_score = final_state.get("glossary_faithfulness_score")
         grammar_score = final_state.get("grammar_correctness_score")
         style_score = final_state.get("style_adherence_score")
+        tmx_score = final_state.get("tmx_faithfulness_score")
         
         if glossary_score is not None:
             print(f"Glossary Faithfulness: {glossary_score:.2f}")
@@ -229,6 +271,8 @@ def main():
             print(f"Grammar Correctness: {grammar_score:.2f}")
         if style_score is not None:
             print(f"Style Adherence: {style_score:.2f}")
+        if tmx_score is not None:
+            print(f"TMX Faithfulness: {tmx_score:.2f}")
         
         if explanation:
             print(f"\nReview Explanation: {explanation}")
@@ -239,7 +283,8 @@ def main():
         dimension_explanations = [
             ("Glossary", final_state.get("glossary_faithfulness_explanation", "")),
             ("Grammar", final_state.get("grammar_correctness_explanation", "")),
-            ("Style", final_state.get("style_adherence_explanation", ""))
+            ("Style", final_state.get("style_adherence_explanation", "")),
+            ("TMX", final_state.get("tmx_faithfulness_explanation", ""))
         ]
         
         individual_issues = [f"{dim}: {expl}" for dim, expl in dimension_explanations if expl]

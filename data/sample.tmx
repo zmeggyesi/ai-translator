@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tmx version="1.4">
+  <header
+    creationtool="AI-Translator"
+    creationtoolversion="1.0"
+    datatype="PlainText"
+    segtype="sentence"
+    adminlang="en-us"
+    srclang="en"
+    o-tmf="TMX"
+  />
+  <body>
+    <tu tuid="1" usagecount="5" creationdate="20240101T120000Z">
+      <tuv xml:lang="en">
+        <seg>Hello world</seg>
+      </tuv>
+      <tuv xml:lang="fr">
+        <seg>Bonjour le monde</seg>
+      </tuv>
+    </tu>
+    <tu tuid="2" usagecount="3" creationdate="20240101T120000Z">
+      <tuv xml:lang="en">
+        <seg>How are you?</seg>
+      </tuv>
+      <tuv xml:lang="fr">
+        <seg>Comment allez-vous?</seg>
+      </tuv>
+    </tu>
+    <tu tuid="3" usagecount="8" creationdate="20240101T120000Z">
+      <tuv xml:lang="en">
+        <seg>Please enter your name and email address.</seg>
+      </tuv>
+      <tuv xml:lang="fr">
+        <seg>Veuillez saisir votre nom et votre adresse email.</seg>
+      </tuv>
+    </tu>
+    <tu tuid="4" usagecount="2" creationdate="20240101T120000Z">
+      <tuv xml:lang="en">
+        <seg>Thank you for your feedback.</seg>
+      </tuv>
+      <tuv xml:lang="fr">
+        <seg>Merci pour vos commentaires.</seg>
+      </tuv>
+    </tu>
+    <tu tuid="5" usagecount="10" creationdate="20240101T120000Z">
+      <tuv xml:lang="en">
+        <seg>Welcome to our application!</seg>
+      </tuv>
+      <tuv xml:lang="fr">
+        <seg>Bienvenue dans notre application!</seg>
+      </tuv>
+    </tu>
+  </body>
+</tmx>

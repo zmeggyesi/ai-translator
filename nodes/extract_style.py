@@ -13,7 +13,7 @@ def _canonical(code: str) -> str:
     return code.lower().split("-")[0].split("_")[0]
 
 
-def _flatten_target_segments(tmx_data: dict, source_language: str, target_language: str) -> List[str]:
+def _flatten_target_segments(tmx_data: dict, source_language: str, target_language: str) -> List[dict]:
     """Return a list of *target* text segments for the requested language pair.
 
     Falls back gracefully to any segments that match the canonicalised
@@ -43,7 +43,11 @@ def _flatten_target_segments(tmx_data: dict, source_language: str, target_langua
                 if _canonical(entry.get("target_lang", "")) == tgt_base:
                     entries.append(entry)
 
-    return [e["target"] for e in entries if e.get("target")]
+    # Return the **full** entry dictionaries so that downstream consumers (e.g.
+    # ``infer_style_guide_from_tmx``) have access to both *source* and *target*
+    # as well as auxiliary metadata (usage_count, etc.).
+
+    return [e for e in entries if isinstance(e, dict) and e.get("target")]
 
 
 def extract_style_guide(

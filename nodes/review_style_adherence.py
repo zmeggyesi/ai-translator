@@ -93,7 +93,12 @@ def evaluate_style_adherence(state: TranslationState) -> Command[Literal["aggreg
     # -------------------------------------------------------------
     style_guide = state.get("style_guide", "")
     if not str(style_guide).strip():
-        inferred = infer_style_guide_from_tmx(state.get("tmx_memory", {}))
+        try:
+            inferred = infer_style_guide_from_tmx(state.get("tmx_memory", {}))
+        except ValueError as exc:
+            logger.warning("Style guide inference failed: %s", exc)
+            inferred = ""
+
         if inferred:
             logger.info("No style guide provided; inferring style from TMX entries.")
             style_guide = inferred

@@ -98,9 +98,17 @@ def parse_tmx_file(tmx_file_path: str) -> Dict[str, List[Dict]]:
                     continue
                     
                 lang = lang.lower()
+                # Extract the full textual content of the <seg> element *including* any
+                # nested inline tags (e.g. <bpt>, <ept>, <ph>). ``Element.text`` only
+                # captures the text preceding the first child which means segments that
+                # start with markup would be silently ignored.  We therefore join all
+                # pieces produced by ``itertext`` to faithfully reconstruct the full
+                # segment string.
                 seg = tuv.find('seg')
-                if seg is not None and seg.text:
-                    lang_segments[lang] = seg.text.strip()
+                if seg is not None:
+                    seg_text = "".join(seg.itertext()).strip()
+                    if seg_text:
+                        lang_segments[lang] = seg_text
             
             # Create translation pairs for all language combinations
             languages = list(lang_segments.keys())
@@ -280,12 +288,16 @@ def infer_style_guide_from_tmx(
         A human-readable style guide snippet ready to embed in LLM prompts, or
         an empty string if nothing useful can be inferred.
     """
+    # Sanity-check the provided TMX memory structure. We now raise explicit
+    # exceptions instead of silently returning an empty string so that callers
+    # can surface clear diagnostics to users when style-guide inference is
+    # impossible.
     if not tmx_memory or not isinstance(tmx_memory, dict):
-        return ""
+        raise ValueError("`tmx_memory` must be a non-empty dictionary produced by `load_tmx_memory`.")
 
-    entries = tmx_memory.get("entries", [])
+    entries = tmx_memory.get("entries")
     if not entries:
-        return ""
+        raise ValueError("`tmx_memory` does not contain any translation entries to infer style from.")
 
     # Sort entries by *usage_count* (defaulting to 0) so that we use the most
     # representative, frequently reviewed segments.
@@ -301,7 +313,7 @@ def infer_style_guide_from_tmx(
 
     examples = sorted_entries[:max_examples]
     if not examples:
-        return ""
+        raise ValueError("No suitable TMX examples available for style inference.")
 
     examples_formatted = "\n".join(
         f'- "{e.get("source", "")}" -> "{e.get("target", "")}"'
@@ -310,7 +322,7 @@ def infer_style_guide_from_tmx(
     )
 
     if not examples_formatted.strip():
-        return ""
+        raise ValueError("Failed to format TMX examples for style inference.")
 
     # Optionally synthesize a concise style guide via LLM
     if use_llm and os.getenv("OPENAI_API_KEY"):

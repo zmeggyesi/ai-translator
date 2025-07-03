@@ -30,7 +30,7 @@ from langchain_core.prompt_values import PromptValue
 from state import TranslationState
 from nodes.tmx_loader import infer_style_guide_from_tmx
 from nodes.utils import extract_response_content
-from typing import Any
+from typing import Any, cast
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -225,7 +225,7 @@ def review_translation_standalone(
                and explanation is str (empty if score >= 0.7)
     """
     # Create a minimal state dict for the review function
-    state_dict = {
+    state_dict: dict = {
         "original_content": original_content,
         "translated_content": translated_content,
         "glossary": glossary,
@@ -237,9 +237,11 @@ def review_translation_standalone(
     }
     
     # Call the main review function
-    result = review_translation(state_dict)
-    
-    return result.get("review_score", 0.0), result.get("review_explanation", "")
+    result_ts = cast(TranslationState, review_translation(cast(TranslationState, state_dict)))
+    score_raw = result_ts.get("review_score")
+    score: float = float(score_raw or 0.0)
+    explanation: str = str(result_ts.get("review_explanation", ""))
+    return score, explanation
 
 
 if __name__ == "__main__":

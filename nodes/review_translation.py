@@ -26,9 +26,11 @@ import logging
 import os
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompt_values import PromptValue
 from state import TranslationState
 from nodes.tmx_loader import infer_style_guide_from_tmx
 from nodes.utils import extract_response_content
+from typing import Any
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -123,7 +125,7 @@ def review_translation(state: TranslationState) -> dict:
         # -------------------------------------------------------------
 
         # Prepare the prompt messages
-        prompt_messages = prompt.invoke({
+        prompt_messages: PromptValue = prompt.invoke({
             "original_content": state["original_content"],
             "translated_content": state["translated_content"],
             "glossary": json.dumps(glossary, ensure_ascii=False),
@@ -136,7 +138,7 @@ def review_translation(state: TranslationState) -> dict:
 
         # Handle both real LLM and mock implementations (for testing)
         if hasattr(llm, "invoke"):
-            response = llm.invoke(prompt_messages)
+            response: Any = llm.invoke(prompt_messages)
         elif hasattr(llm, "__ror__"):
             # Fallback for mocked implementations in tests
             chain = llm.__ror__(prompt_messages)

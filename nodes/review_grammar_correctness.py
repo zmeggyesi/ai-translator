@@ -21,9 +21,10 @@ import logging
 import os
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompt_values import PromptValue
 from state import TranslationState
 from langgraph.types import Command
-from typing import Literal
+from typing import Literal, Any
 from nodes.utils import extract_response_content
 
 # Configure logging
@@ -109,7 +110,7 @@ def evaluate_grammar_correctness(state: TranslationState) -> Command[Literal["st
         llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
         # Prepare the prompt messages
-        prompt_messages = prompt.invoke({
+        prompt_messages: PromptValue = prompt.invoke({
             "original_content": state["original_content"],
             "translated_content": state["translated_content"],
             "source_language": state["source_language"],
@@ -120,7 +121,7 @@ def evaluate_grammar_correctness(state: TranslationState) -> Command[Literal["st
 
         # Handle both real LLM and mock implementations (for testing)
         if hasattr(llm, "invoke"):
-            response = llm.invoke(prompt_messages)
+            response: Any = llm.invoke(prompt_messages)
         elif hasattr(llm, "__ror__"):
             # Fallback for mocked implementations in tests
             chain = llm.__ror__(prompt_messages)

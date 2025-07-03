@@ -23,10 +23,12 @@ import json
 import logging
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompt_values import PromptValue
 from state import TranslationState
 from nodes.tmx_loader import find_tmx_matches, infer_style_guide_from_tmx
 from nodes.utils import extract_response_content
 import os
+from typing import Any
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -111,7 +113,7 @@ def translate_content(state: TranslationState) -> dict:
 
         # Prepare the prompt messages using the ChatPromptTemplate so that we can
         # invoke or otherwise pass them to the underlying model implementation.
-        prompt_messages = prompt.invoke({
+        prompt_messages: PromptValue = prompt.invoke({
             "original_content": state["original_content"],
             "style_guide": style_guide,
             "glossary": json.dumps(glossary, ensure_ascii=False),
@@ -130,7 +132,7 @@ def translate_content(state: TranslationState) -> dict:
         #     commonly implemented by simplistic mocks (see unit tests).
         # 3.  Raise a clear error if neither strategy is supported.
         if hasattr(llm, "invoke"):
-            response = llm.invoke(prompt_messages)
+            response: Any = llm.invoke(prompt_messages)
         elif hasattr(llm, "__ror__"):
             # Mocks used in unit-tests often rely on ``prompt_messages | llm`` which
             # triggers ``llm.__ror__(prompt_messages)``. We replicate that behaviour

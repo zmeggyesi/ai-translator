@@ -197,26 +197,55 @@ def load_tmx_memory(state: TranslationState, tmx_file_path: str) -> dict:
         # Parse the TMX file
         full_tmx_memory = parse_tmx_file(tmx_file_path)
         
-        # Extract entries for the current language pair
-        source_lang = state["source_language"].lower()
-        target_lang = state["target_language"].lower()
-        language_pair = f"{source_lang}->{target_lang}"
-        
+        # Extract entries for the current language pair, taking into account
+        # potential language-region variants (e.g. "en-US", "fr_FR") that may
+        # appear as ``xml:lang`` attributes in multilingual TMX files.
+
+        def _canonical(code: str) -> str:
+            """Return base ISO language code (strip region/script variants)."""
+            return code.lower().split("-")[0].split("_")[0]
+
+        source_lang_raw = state["source_language"].lower()
+        target_lang_raw = state["target_language"].lower()
+
+        source_base = _canonical(source_lang_raw)
+        target_base = _canonical(target_lang_raw)
+
+        language_pair = f"{source_base}->{target_base}"
+
+        # 1. First, try an exact key match (common case when TMX uses plain ISO codes)
         tmx_entries = full_tmx_memory.get(language_pair, [])
-        
+
+        # 2. If nothing found, aggregate over all keys whose canonicalised codes
+        #    match the desired language pair (handles region/script variants).
         if not tmx_entries:
-            logger.info(f"No TMX entries found for language pair: {language_pair}")
+            aggregated: list = []
+            for key, entries in full_tmx_memory.items():
+                try:
+                    src_code, tgt_code = key.split("->", 1)
+                except ValueError:
+                    continue
+
+                if _canonical(src_code) == source_base and _canonical(tgt_code) == target_base:
+                    aggregated.extend(entries)
+
+            tmx_entries = aggregated
+
+        if not tmx_entries:
+            logger.info(
+                f"No TMX entries found for language pair (with or without region variants): {source_base}->{target_base}"
+            )
             available_pairs = list(full_tmx_memory.keys())
-            logger.info(f"Available language pairs in TMX: {available_pairs}")
-        
-        logger.info(f"Loaded {len(tmx_entries)} TMX entries for {language_pair}")
-        
+            logger.debug(f"Available language pairs in TMX: {available_pairs}")
+
+        logger.info(f"Loaded {len(tmx_entries)} TMX entries for {source_base}->{target_base}")
+
         return {
             "tmx_memory": {
                 "entries": tmx_entries,
-                "language_pair": language_pair,
-                "source_lang": source_lang,
-                "target_lang": target_lang
+                "language_pair": f"{source_base}->{target_base}",
+                "source_lang": source_base,
+                "target_lang": target_base
             }
         }
         

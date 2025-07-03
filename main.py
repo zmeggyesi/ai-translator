@@ -170,14 +170,19 @@ def main():
             tmx_result = load_tmx_memory(temp_state, args.tmx)
             tmx_memory = tmx_result.get("tmx_memory", {})
             
-            if tmx_memory and "entries" in tmx_memory:
-                entries_count = len(tmx_memory["entries"])
-                if entries_count > 0:
-                    logger.info(f"Loaded {entries_count} TMX entries for {tmx_memory.get('language_pair', 'unknown language pair')}")
-                else:
-                    logger.warning(f"No TMX entries found for language pair {args.source_language}->{target_language}")
-            else:
-                logger.warning("TMX file loaded but no usable entries found")
+            # Log how many translation memory entries were loaded (always log, even if zero)
+            entries_count = len(tmx_memory.get("entries", [])) if tmx_memory else 0
+            language_pair = tmx_memory.get("language_pair", f"{args.source_language}->{target_language}") if tmx_memory else f"{args.source_language}->{target_language}"
+            logger.info(
+                f"Translation memory loaded: {entries_count} entr{'y' if entries_count == 1 else 'ies'} "
+                f"for language pair {language_pair}"
+            )
+
+            if entries_count == 0:
+                logger.warning(
+                    "No usable translation memory entries were found for the specified language pair. "
+                    "The TMX file might not contain matching segments."
+                )
                 
         except FileNotFoundError:
             logger.error(f"TMX file not found: {args.tmx}")

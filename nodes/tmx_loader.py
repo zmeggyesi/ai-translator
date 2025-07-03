@@ -316,7 +316,7 @@ def infer_style_guide_from_tmx(
     if use_llm and os.getenv("OPENAI_API_KEY"):
         try:
             prompt = ChatPromptTemplate.from_template(
-                """You are a professional localization specialist. Analyse the following bilingual examples and produce a concise style guide (max 120 words) covering tone, register, punctuation, and any notable stylistic patterns. Focus on guidance applicable to future translations of similar technical texts.\n\nExamples:\n{examples}\n\nSTYLE GUIDE:"""
+                """You are a professional localization specialist. Analyse the following bilingual examples and produce a comprehensive style guide (up to roughly three pages) covering tone, register, punctuation, preferred constructions, formatting conventions, voice, and any notable stylistic patterns. Focus on guidance applicable to future translations of similar technical texts.\n\nExamples:\n{examples}\n\nSTYLE GUIDE:"""
             )
             llm = ChatOpenAI(model="gpt-4o", temperature=0)
             messages = prompt.invoke({"examples": examples_formatted})
@@ -329,8 +329,7 @@ def infer_style_guide_from_tmx(
                 response = chain.invoke(None)  # type: ignore[assignment]
 
             content = getattr(response, "content", str(response)).strip()
-            # Truncate overly long outputs
-            return content[:600]
+            return content
         except Exception as exc:
             logger.warning("LLM style guide synthesis failed: %s", exc)
 

@@ -50,7 +50,8 @@ translation/
 │   ├── test_translate_content.py
 │   └── test_graph_visualization.py
 ├── graph.py              # Graph wiring – defines the node topology
-├── main.py               # CLI entry-point with TMX support
+├── cli.py               # Unified CLI (translate-file / extract-style / extract-glossary)
+├── main.py               # Legacy CLI entry-point (translate-file only, still supported)
 ├── state.py              # TypedDict shared state definition
 ├── pyproject.toml        # UV-compatible metadata + dependencies
 ├── uv.lock               # Machine-generated lock-file (UV)
@@ -88,38 +89,38 @@ The code automatically loads `.env` via `python-dotenv` on startup.
 ### 3. Run the example
 
 ```bash
-python main.py  # Default: English to Spanish translation
+python cli.py translate-file  # Default: English → Spanish translation
 ```
 
 #### Command-line options:
 
 ```bash
 # Basic usage with custom languages
-python main.py --source-language English --target-language French
-python main.py -sl German -tl English
+python cli.py translate-file --source-language English --target-language French
+python cli.py translate-file -sl German -tl English
 
 # Custom file locations
-python main.py --input data/my_document.txt --glossary data/my_glossary.csv --style-guide data/my_style.md
-python main.py -i data/doc.txt -g data/terms.csv -s data/guide.md
+python cli.py translate-file --input data/my_document.txt --glossary data/my_glossary.csv --style-guide data/my_style.md
+python cli.py translate-file -i data/doc.txt -g data/terms.csv -s data/guide.md
 
 # Translation with TMX memory
-python main.py --tmx data/sample.tmx
-python main.py -t data/my_translations.tmx --source-language en --target-language fr
+python cli.py translate-file --tmx data/sample.tmx
+python cli.py translate-file -t data/my_translations.tmx --source-language en --target-language fr
 
 # Combine all options with TMX
-python main.py -sl English -tl Spanish -i data/technical_doc.txt -g data/tech_glossary.csv -s data/technical_style.md -t data/tech_memory.tmx
+python cli.py translate-file -sl English -tl Spanish -i data/technical_doc.txt -g data/tech_glossary.csv -s data/technical_style.md -t data/tech_memory.tmx
 
 # Enable automatic translation review (multi-agent system)
-python main.py --review
-python main.py -sl English -tl French --review
+python cli.py translate-file --review
+python cli.py translate-file -sl English -tl French --review
 
 # Generate workflow visualizations  
-python main.py --visualize --viz-type all
-python main.py --review --visualize --viz-type combined
+python cli.py translate-file --visualize --viz-type all
+python cli.py translate-file --review --visualize --viz-type combined
 
 # Backward compatibility (deprecated)
-python main.py --language French  # Same as --target-language French
-python main.py -l German          # Same as -tl German
+python cli.py translate-file --language French  # Same as --target-language French
+python cli.py translate-file -l German          # Same as -tl German
 ```
 
 #### Available command-line arguments:
@@ -188,7 +189,7 @@ The pipeline includes an optional **multi-agent review system** that evaluates t
 **Usage:**
 ```bash
 # Enable review as part of the main pipeline
-python main.py --review
+python cli.py translate-file --review
 
 # Standalone multi-agent review of existing translation
 python -m nodes.review_agent \
@@ -224,7 +225,7 @@ python graph.py --combined -o complete_workflow.png
 python graph.py --main-only --review -o main_with_review.png
 
 # Generate visualizations as part of translation
-python main.py --review --visualize --viz-type combined
+python cli.py translate-file --review --visualize --viz-type combined
 ```
 
 **Available Visualization Types:**

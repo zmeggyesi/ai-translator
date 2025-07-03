@@ -67,9 +67,9 @@ def _add_translate_parser(subparsers: argparse._SubParsersAction) -> argparse.Ar
         description="Translate a text file, optionally applying a glossary, style guide, and/or TMX file.",
     )
 
-    p.add_argument("-i", "--input", default="data/input.txt", help="Input file path (plain text)")
-    p.add_argument("-sl", "--source-language", default="English", help="Source language (default: English)")
-    p.add_argument("-tl", "--target-language", default="Spanish", help="Target language (default: Spanish)")
+    p.add_argument("-i", "--input", required=True, help="Input file path (plain text)")
+    p.add_argument("-sl", "--source-language", required=True, help="Source language of the text")
+    p.add_argument("-tl", "--target-language", required=True, help="Target language for translation")
     p.add_argument("-g", "--glossary", default="data/glossary.csv", help="Glossary CSV (term,translation)")
     p.add_argument("-s", "--style-guide", default="data/style_guide.md", help="Style-guide file (markdown)")
     p.add_argument("-t", "--tmx", help="TMX file providing translation memory")
@@ -279,9 +279,9 @@ def _add_style_parser(subparsers: argparse._SubParsersAction) -> argparse.Argume
         help="Infer a style guide from a TMX file.",
     )
     p.add_argument("-t", "--tmx", required=True, help="Input TMX file")
-    p.add_argument("-sl", "--source-language", default="English", help="Source language code")
-    p.add_argument("-tl", "--target-language", default="Spanish", help="Target language code")
-    p.add_argument("-o", "--output", default="extracted_style.md", help="Output markdown file")
+    p.add_argument("-sl", "--source-language", required=True, help="Source language code")
+    p.add_argument("-tl", "--target-language", required=True, help="Target language code")
+    p.add_argument("-o", "--output", required=True, help="Output markdown file path")
     return p
 
 
@@ -311,9 +311,9 @@ def _add_glossary_parser(subparsers: argparse._SubParsersAction) -> argparse.Arg
     source.add_argument("-t", "--tmx", help="TMX file to analyse")
     source.add_argument("-i", "--input", help="Plain-text file to analyse")
 
-    p.add_argument("-sl", "--source-language", default="English", help="Source language code")
-    p.add_argument("-tl", "--target-language", default="Spanish", help="Target language code")
-    p.add_argument("-o", "--output", default="glossary.csv", help="Output CSV file")
+    p.add_argument("-sl", "--source-language", required=True, help="Source language code")
+    p.add_argument("-tl", "--target-language", required=True, help="Target language code")
+    p.add_argument("-o", "--output", required=True, help="Output CSV file path")
     return p
 
 

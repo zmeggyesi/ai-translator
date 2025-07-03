@@ -28,6 +28,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from state import TranslationState
 from nodes.tmx_loader import infer_style_guide_from_tmx
+from nodes.utils import extract_response_content
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -154,7 +155,7 @@ def review_translation(state: TranslationState) -> dict:
 
         # Parse the JSON response
         try:
-            response_content = response.content.strip()
+            response_content = extract_response_content(response).strip()
             
             # Handle cases where the LLM wraps the JSON in markdown code blocks
             if response_content.startswith("```") and response_content.endswith("```"):
@@ -182,7 +183,7 @@ def review_translation(state: TranslationState) -> dict:
             
         except (json.JSONDecodeError, ValueError, KeyError) as e:
             logger.error(f"Error parsing review response: {e}")
-            logger.error(f"Raw response: {response.content}")
+            logger.error(f"Raw response: {extract_response_content(response)}")
             return {
                 "review_score": 0.0,
                 "review_explanation": f"ERROR: Could not parse review response - {str(e)}"

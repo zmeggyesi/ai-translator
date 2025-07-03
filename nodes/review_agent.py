@@ -25,11 +25,12 @@ from nodes.review_grammar_correctness import evaluate_grammar_correctness
 from nodes.review_style_adherence import evaluate_style_adherence
 from nodes.review_aggregator import aggregate_review_scores
 from nodes.review_tmx_faithfulness import evaluate_tmx_faithfulness
+from typing import Optional
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-def create_review_agent(checkpointer: BaseCheckpointSaver = None, include_tmx: bool = False):
+def create_review_agent(checkpointer: Optional[BaseCheckpointSaver] = None, include_tmx: bool = False):
     """
     Creates and compiles the multi-agent translation review graph.
     
@@ -84,7 +85,7 @@ def create_review_agent(checkpointer: BaseCheckpointSaver = None, include_tmx: b
     return compiled_graph
 
 
-def review_translation_multi_agent(state: TranslationState, checkpointer: BaseCheckpointSaver = None, include_tmx: bool = False) -> dict:
+def review_translation_multi_agent(state: TranslationState, checkpointer: Optional[BaseCheckpointSaver] = None, include_tmx: bool = False) -> dict:
     """
     Main function to review a translation using the multi-agent approach.
     

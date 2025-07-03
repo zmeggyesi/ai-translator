@@ -25,6 +25,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from state import TranslationState
 from nodes.tmx_loader import find_tmx_matches, infer_style_guide_from_tmx
+from nodes.utils import extract_response_content
 import os
 
 # Configure logging
@@ -149,9 +150,7 @@ def translate_content(state: TranslationState) -> dict:
             )
 
         logger.info("Translation complete.")
-        # Real LLM responses provide the translated text in ``response.content``.
-        # Mocks used in tests mirror that interface, so we access it uniformly.
-        return {"translated_content": response.content}
+        return {"translated_content": extract_response_content(response)}
     
     except Exception as e:
         logger.error(f"Error during translation: {type(e).__name__}: {str(e)}")

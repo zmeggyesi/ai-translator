@@ -25,6 +25,7 @@ from state import TranslationState
 from langgraph.types import Command
 from typing import Literal
 from nodes.tmx_loader import infer_style_guide_from_tmx
+from nodes.utils import extract_response_content
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -159,7 +160,7 @@ def evaluate_style_adherence(state: TranslationState) -> Command[Literal["aggreg
 
         # Parse the JSON response
         try:
-            response_content = response.content.strip()
+            response_content = extract_response_content(response).strip()
             
             # Handle cases where the LLM wraps the JSON in markdown code blocks
             if response_content.startswith("```") and response_content.endswith("```"):
@@ -190,7 +191,7 @@ def evaluate_style_adherence(state: TranslationState) -> Command[Literal["aggreg
             
         except (json.JSONDecodeError, ValueError, KeyError) as e:
             logger.error(f"Error parsing style review response: {e}")
-            logger.error(f"Raw response: {response.content}")
+            logger.error(f"Raw response: {extract_response_content(response)}")
             return Command(
                 update={
                     "style_adherence_score": 0.0,

@@ -25,6 +25,9 @@ from typing import Dict, List, Tuple, Optional, Any
 from pathlib import Path
 from rapidfuzz import fuzz
 from state import TranslationState
+import os
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -254,7 +257,11 @@ def load_tmx_memory(state: TranslationState, tmx_file_path: str) -> dict:
         return {"tmx_memory": {"error": str(e), "entries": []}}
 
 
-def infer_style_guide_from_tmx(tmx_memory: Optional[Dict[str, Any]], max_examples: int = 5) -> str:
+def infer_style_guide_from_tmx(
+    tmx_memory: Optional[Dict[str, Any]],
+    max_examples: int = 5,
+    use_llm: bool = True,
+) -> str:
     """Infer a minimal style guide string based on TMX entries.
 
     The function inspects the provided *tmx_memory* structure (as returned by
@@ -267,6 +274,7 @@ def infer_style_guide_from_tmx(tmx_memory: Optional[Dict[str, Any]], max_example
             list.  The function tolerates ``None`` or malformed structures
             gracefully.
         max_examples: Maximum number of high-usage TMX examples to include.
+        use_llm: Whether to optionally leverage an LLM to synthesize style guide.
 
     Returns:
         A human-readable style guide snippet ready to embed in LLM prompts, or
@@ -304,6 +312,29 @@ def infer_style_guide_from_tmx(tmx_memory: Optional[Dict[str, Any]], max_example
     if not examples_formatted.strip():
         return ""
 
+    # Optionally synthesize a concise style guide via LLM
+    if use_llm and os.getenv("OPENAI_API_KEY"):
+        try:
+            prompt = ChatPromptTemplate.from_template(
+                """You are a professional localization specialist. Analyse the following bilingual examples and produce a concise style guide (max 120 words) covering tone, register, punctuation, and any notable stylistic patterns. Focus on guidance applicable to future translations of similar technical texts.\n\nExamples:\n{examples}\n\nSTYLE GUIDE:"""
+            )
+            llm = ChatOpenAI(model="gpt-4o", temperature=0)
+            messages = prompt.invoke({"examples": examples_formatted})
+
+            # Handle mocks in tests similarly to other nodes
+            if hasattr(llm, "invoke"):
+                response = llm.invoke(messages)
+            else:
+                chain = llm.__ror__(messages)  # type: ignore[operator]
+                response = chain.invoke(None)  # type: ignore[assignment]
+
+            content = getattr(response, "content", str(response)).strip()
+            # Truncate overly long outputs
+            return content[:600]
+        except Exception as exc:
+            logger.warning("LLM style guide synthesis failed: %s", exc)
+
+    # Fallback textual examples
     return (
         "The following examples illustrate the desired tone, register, and syntax. "
         "Maintain consistency with them:\n" + examples_formatted

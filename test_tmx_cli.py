@@ -43,7 +43,7 @@ def test_tmx_functionality():
     # Test 1: Translation with TMX (should use exact match)
     print("\n📚 Test 1: Translation with exact TMX match")
     cmd = [
-        "uv", "run", "python", "main.py",
+        "uv", "run", "python", "cli.py", "translate-file",
         "--source-language", "en",
         "--target-language", "fr", 
         "--input", "data/input.txt",
@@ -63,7 +63,7 @@ def test_tmx_functionality():
     
     # Test 2: Show help with TMX option
     print("\n📖 Test 2: Check CLI help includes TMX option")
-    cmd = ["uv", "run", "python", "main.py", "--help"]
+    cmd = ["uv", "run", "python", "cli.py", "translate-file", "--help"]
     output = run_command(cmd)
     
     if output and "--tmx" in output:

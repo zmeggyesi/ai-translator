@@ -89,73 +89,90 @@ The code automatically loads `.env` via `python-dotenv` on startup.
 ### 3. Run the example
 
 ```bash
-python cli.py translate-file  # Default: English → Spanish translation
+python cli.py translate-file \
+  --input data/input.txt \
+  --source-language English \
+  --target-language Spanish
 ```
 
 #### Command-line options:
 
 ```bash
-# Basic usage with custom languages
-python cli.py translate-file --source-language English --target-language French
-python cli.py translate-file -sl German -tl English
+# Basic usage with custom languages (input file required)
+python cli.py translate-file -i data/doc.txt -sl English -tl French
+python cli.py translate-file --input data/doc.txt --source-language German --target-language English
 
 # Custom file locations
-python cli.py translate-file --input data/my_document.txt --glossary data/my_glossary.csv --style-guide data/my_style.md
-python cli.py translate-file -i data/doc.txt -g data/terms.csv -s data/guide.md
+python cli.py translate-file -i data/my_document.txt -sl English -tl Spanish \
+  --glossary data/my_glossary.csv --style-guide data/my_style.md
 
 # Translation with TMX memory
-python cli.py translate-file --tmx data/sample.tmx
-python cli.py translate-file -t data/my_translations.tmx --source-language en --target-language fr
+python cli.py translate-file -i data/input.txt -sl English -tl French \
+  --tmx data/sample.tmx
+python cli.py translate-file -i data/input.txt -sl en -tl fr \
+  -t data/my_translations.tmx
 
 # Combine all options with TMX
-python cli.py translate-file -sl English -tl Spanish -i data/technical_doc.txt -g data/tech_glossary.csv -s data/technical_style.md -t data/tech_memory.tmx
+python cli.py translate-file -i data/technical_doc.txt -sl English -tl Spanish \
+  -g data/tech_glossary.csv -s data/technical_style.md -t data/tech_memory.tmx
 
 # Enable automatic translation review (multi-agent system)
-python cli.py translate-file --review
-python cli.py translate-file -sl English -tl French --review
+python cli.py translate-file -i data/input.txt -sl English -tl French --review
 
 # Generate workflow visualizations  
-python cli.py translate-file --visualize --viz-type all
-python cli.py translate-file --review --visualize --viz-type combined
+python cli.py translate-file -i data/input.txt -sl English -tl Spanish --visualize --viz-type all
+python cli.py translate-file -i data/input.txt -sl English -tl French --review --visualize --viz-type combined
 
 # Backward compatibility (deprecated)
-python cli.py translate-file --language French  # Same as --target-language French
-python cli.py translate-file -l German          # Same as -tl German
+python cli.py translate-file -i data/input.txt --source-language English --language French  # Same as --target-language French
+python cli.py translate-file -i data/input.txt -sl English -l German          # Same as -tl German
 ```
 
-#### Available command-line arguments:
+#### Available command-line arguments (translate-file):
 
-- `-sl, --source-language`: Source language of the input text (default: English)
-- `-tl, --target-language`: Target language for translation (default: Spanish)
-- `-i, --input`: Input file path (default: data/input.txt)
+- `-i, --input` **(required)**: Input file path
+- `-sl, --source-language` **(required)**: Source language of the input text
+- `-tl, --target-language` **(required)**: Target language for translation
 - `-g, --glossary`: Glossary CSV file path (default: data/glossary.csv)  
 - `-s, --style-guide`: Style guide file path (default: data/style_guide.md)
 - `-t, --tmx`: TMX (Translation Memory eXchange) file path for leveraging translation memory
 - `--review`: Enable automatic translation review and scoring (uses multi-agent system by default)
 - `--visualize`: Generate visualization diagrams of the workflow  
 - `--viz-type {main,review,combined,all}`: Type of visualization to generate (default: combined when review is enabled)
-- `-l, --language`: **Deprecated** - use `--target-language` instead
 
-#### Human-in-the-loop Review
+### 3b. Extract a Style Guide from TMX
 
-The pipeline includes a human review step that:
-1. Shows you the filtered glossary terms found in your text
-2. Allows you to modify the glossary before translation
-3. Accepts JSON input to update glossary terms, or Enter to continue unchanged
-
-Example interaction:
-```
---- Human Review ---
-Current filtered glossary:
-{'Python': 'Python 3', 'LangGraph': 'LG'}
---------------------
-
---- Waiting for human input ---
-To provide a new glossary, enter a JSON string. Otherwise, press Enter to continue.
-> {"Python": "Python 3.11", "LangGraph": "LangGraph Framework"}
+```bash
+python cli.py extract-style \
+  --tmx data/sample.tmx \
+  --source-language English \
+  --target-language French \
+  --output extracted_style.md
 ```
 
-A Mermaid diagram of the graph will be written to `graph-visualization.md`.
+### 3c. Extract Glossary Terms
+
+```bash
+python cli.py extract-glossary \
+  --input data/input.txt \
+  --output glossary.csv \
+  --source-language English \
+  --target-language Spanish
+```
+
+#### Available command-line arguments (extract-style):
+
+- `-t, --tmx` **(required)**: TMX file to analyse
+- `-sl, --source-language` **(required)**: Source language code
+- `-tl, --target-language` **(required)**: Target language code
+- `-o, --output` **(required)**: Output Markdown file
+
+#### Available command-line arguments (extract-glossary):
+
+- One of `-t/--tmx` *or* `-i/--input` **(required)**: Source to analyse 
+- `-o, --output` **(required)**: Output CSV file path
+- `-sl, --source-language` **(required)**: Source language
+- `-tl, --target-language` **(required)**: Target language (needed for TMX extraction)
 
 #### Translation Review (Optional)
 

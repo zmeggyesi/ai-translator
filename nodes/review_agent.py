@@ -25,7 +25,7 @@ from nodes.review_grammar_correctness import evaluate_grammar_correctness
 from nodes.review_style_adherence import evaluate_style_adherence
 from nodes.review_aggregator import aggregate_review_scores
 from nodes.review_tmx_faithfulness import evaluate_tmx_faithfulness
-from typing import Optional
+from typing import Optional, cast
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -85,7 +85,7 @@ def create_review_agent(checkpointer: Optional[BaseCheckpointSaver] = None, incl
     return compiled_graph
 
 
-def review_translation_multi_agent(state: TranslationState, checkpointer: Optional[BaseCheckpointSaver] = None, include_tmx: bool = False) -> dict:
+def review_translation_multi_agent(state: TranslationState, checkpointer: Optional[BaseCheckpointSaver] = None, include_tmx: bool = False) -> TranslationState:
     """
     Main function to review a translation using the multi-agent approach.
     
@@ -112,7 +112,7 @@ def review_translation_multi_agent(state: TranslationState, checkpointer: Option
     # Execute the review workflow
     try:
         # Run the multi-agent review
-        result = review_graph.invoke(state)
+        result = cast(TranslationState, review_graph.invoke(cast(TranslationState, state)))
         
         logger.info("Multi-agent review completed successfully")
         return result
@@ -154,7 +154,7 @@ def review_translation_standalone_multi_agent(
                and explanation is str (empty if score >= 0.7)
     """
     # Create a minimal state dict for the review function
-    state_dict = {
+    state_dict: dict = {
         "original_content": original_content,
         "translated_content": translated_content,
         "glossary": glossary,
@@ -175,9 +175,11 @@ def review_translation_standalone_multi_agent(
     }
     
     # Call the main multi-agent review function
-    result = review_translation_multi_agent(state_dict)
-    
-    return result.get("review_score", 0.0), result.get("review_explanation", "")
+    result_ts = cast(TranslationState, review_translation_multi_agent(cast(TranslationState, state_dict)))
+    score_raw = result_ts.get("review_score")
+    score: float = float(score_raw or 0.0)
+    explanation: str = str(result_ts.get("review_explanation", ""))
+    return score, explanation
 
 
 if __name__ == "__main__":
@@ -239,7 +241,7 @@ if __name__ == "__main__":
         
         # Show detailed breakdown if requested
         if args.breakdown:
-            state_dict = {
+            state_dict: dict = {
                 "original_content": original,
                 "translated_content": translation,
                 "glossary": glossary,
@@ -258,7 +260,7 @@ if __name__ == "__main__":
                 "review_explanation": None
             }
             
-            result = review_translation_multi_agent(state_dict)
+            result = cast(TranslationState, review_translation_multi_agent(cast(TranslationState, state_dict)))
             
             print("\n--- Detailed Score Breakdown ---")
             print(f"Glossary Faithfulness: {result.get('glossary_faithfulness_score', 'N/A')}")

@@ -24,6 +24,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from state import TranslationState
 from langgraph.types import Command
 from typing import Literal
+from nodes.tmx_loader import infer_style_guide_from_tmx
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -90,25 +91,14 @@ def evaluate_style_adherence(state: TranslationState) -> Command[Literal["aggreg
     # -------------------------------------------------------------
     style_guide = state.get("style_guide", "")
     if not str(style_guide).strip():
-        tmx_memory = state.get("tmx_memory", {})
-        if tmx_memory and "entries" in tmx_memory and tmx_memory["entries"]:
+        inferred = infer_style_guide_from_tmx(state.get("tmx_memory", {}))
+        if inferred:
             logger.info("No style guide provided; inferring style from TMX entries.")
-            example_entries = sorted(
-                tmx_memory["entries"],
-                key=lambda e: e.get("usage_count", 0),
-                reverse=True
-            )[:5]
-            examples_formatted = "\n".join(
-                f'- "{e["source"]}" -> "{e["target"]}"' for e in example_entries
-            )
-            style_guide = (
-                "The following examples illustrate the desired tone, register, and syntax. "
-                "Maintain consistency with them:\n" + examples_formatted
-            )
-            # Persist inferred style guide so downstream nodes see it
-            state["style_guide"] = style_guide
+            style_guide = inferred
         else:
             logger.info("No style guide provided and no TMX entries available; proceeding without explicit style guidance.")
+    # Persist inferred style for rest of review pipeline
+    state["style_guide"] = style_guide
     # -------------------------------------------------------------
     
     # Check if we have the required content

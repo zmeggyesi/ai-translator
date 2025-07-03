@@ -24,7 +24,7 @@ import logging
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from state import TranslationState
-from nodes.tmx_loader import find_tmx_matches
+from nodes.tmx_loader import find_tmx_matches, infer_style_guide_from_tmx
 import os
 
 # Configure logging
@@ -92,24 +92,14 @@ def translate_content(state: TranslationState) -> dict:
         # -------------------------------------------------------------
         style_guide = state.get("style_guide", "")
         if not str(style_guide).strip():
-            # No explicit style guide provided
-            if tmx_memory and "entries" in tmx_memory and tmx_memory["entries"]:
+            inferred = infer_style_guide_from_tmx(tmx_memory)
+            if inferred:
                 logger.info("No style guide provided; inferring style from TMX entries.")
-                # Use up to 5 examples with the highest usage_count to convey style
-                example_entries = sorted(
-                    tmx_memory["entries"],
-                    key=lambda e: e.get("usage_count", 0),
-                    reverse=True
-                )[:5]
-                examples_formatted = "\n".join(
-                    f"- \"{e['source']}\" -> \"{e['target']}\"" for e in example_entries
-                )
-                style_guide = (
-                    "The following examples illustrate the desired tone, register, and syntax. "
-                    "Maintain consistency with them:\n" + examples_formatted
-                )
+                style_guide = inferred
             else:
                 logger.info("No style guide provided and no TMX entries available; proceeding without explicit style guidance.")
+        # Persist inferred style guide back to state for downstream stages
+        state["style_guide"] = style_guide
         # -------------------------------------------------------------
 
         prompt = ChatPromptTemplate.from_template(TRANSLATION_PROMPT)

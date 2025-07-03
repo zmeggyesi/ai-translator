@@ -21,7 +21,7 @@ The module handles malformed XML gracefully and provides clear error messages.
 
 import logging
 import xml.etree.ElementTree as ET
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 from pathlib import Path
 from rapidfuzz import fuzz
 from state import TranslationState
@@ -252,3 +252,59 @@ def load_tmx_memory(state: TranslationState, tmx_file_path: str) -> dict:
     except Exception as e:
         logger.error(f"Error loading TMX memory: {e}")
         return {"tmx_memory": {"error": str(e), "entries": []}}
+
+
+def infer_style_guide_from_tmx(tmx_memory: Optional[Dict[str, Any]], max_examples: int = 5) -> str:
+    """Infer a minimal style guide string based on TMX entries.
+
+    The function inspects the provided *tmx_memory* structure (as returned by
+    :pyfunc:`load_tmx_memory`) and constructs a short instructional block that
+    conveys the preferred tone, register, and syntactic style by example.  It
+    returns an empty string when no suitable TMX entries are available.
+
+    Args:
+        tmx_memory: The TMX memory dictionary that may contain an "entries"
+            list.  The function tolerates ``None`` or malformed structures
+            gracefully.
+        max_examples: Maximum number of high-usage TMX examples to include.
+
+    Returns:
+        A human-readable style guide snippet ready to embed in LLM prompts, or
+        an empty string if nothing useful can be inferred.
+    """
+    if not tmx_memory or not isinstance(tmx_memory, dict):
+        return ""
+
+    entries = tmx_memory.get("entries", [])
+    if not entries:
+        return ""
+
+    # Sort entries by *usage_count* (defaulting to 0) so that we use the most
+    # representative, frequently reviewed segments.
+    try:
+        sorted_entries = sorted(
+            entries,
+            key=lambda e: e.get("usage_count", 0) if isinstance(e, dict) else 0,
+            reverse=True,
+        )
+    except Exception as exc:  # pragma: no cover – extreme edge case
+        logger.warning("Could not sort TMX entries for style inference: %s", exc)
+        sorted_entries = entries  # Fallback to original order
+
+    examples = sorted_entries[:max_examples]
+    if not examples:
+        return ""
+
+    examples_formatted = "\n".join(
+        f'- "{e.get("source", "")}" -> "{e.get("target", "")}"'
+        for e in examples
+        if isinstance(e, dict)
+    )
+
+    if not examples_formatted.strip():
+        return ""
+
+    return (
+        "The following examples illustrate the desired tone, register, and syntax. "
+        "Maintain consistency with them:\n" + examples_formatted
+    )

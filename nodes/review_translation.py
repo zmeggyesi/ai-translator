@@ -105,12 +105,38 @@ def review_translation(state: TranslationState) -> dict:
         glossary = state.get("filtered_glossary") or state.get("glossary", {})
         logger.debug(f"Using glossary for review: {glossary}")
 
+        # -------------------------------------------------------------
+        # Handle missing style guide by inferring style from TMX entries
+        # -------------------------------------------------------------
+        style_guide = state.get("style_guide", "")
+        if not str(style_guide).strip():
+            tmx_memory = state.get("tmx_memory", {})
+            if tmx_memory and "entries" in tmx_memory and tmx_memory["entries"]:
+                logger.info("No style guide provided; inferring style from TMX entries.")
+                example_entries = sorted(
+                    tmx_memory["entries"],
+                    key=lambda e: e.get("usage_count", 0),
+                    reverse=True
+                )[:5]
+                examples_formatted = "\n".join(
+                    f'- "{e["source"]}" -> "{e["target"]}"' for e in example_entries
+                )
+                style_guide = (
+                    "The following examples illustrate the desired tone, register, and syntax. "
+                    "Maintain consistency with them:\n" + examples_formatted
+                )
+                # Persist inferred style guide so downstream reviewers can reuse it
+                state["style_guide"] = style_guide
+            else:
+                logger.info("No style guide provided and no TMX entries available; proceeding without explicit style guidance.")
+        # -------------------------------------------------------------
+
         # Prepare the prompt messages
         prompt_messages = prompt.invoke({
             "original_content": state["original_content"],
             "translated_content": state["translated_content"],
             "glossary": json.dumps(glossary, ensure_ascii=False),
-            "style_guide": state["style_guide"],
+            "style_guide": style_guide,
             "source_language": state["source_language"],
             "target_language": state["target_language"],
         })

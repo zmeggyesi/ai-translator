@@ -57,8 +57,10 @@ def create_review_agent(checkpointer: BaseCheckpointSaver = None, include_tmx: b
     
     # Add specialized review nodes
     review_graph.add_node("glossary_faithfulness", evaluate_glossary_faithfulness)
-    if include_tmx:
-        review_graph.add_node("tmx_faithfulness", evaluate_tmx_faithfulness)
+    # Always add the TMX faithfulness node so that compile-time validation succeeds
+    # even when TMX is not used. The node itself will gracefully handle cases
+    # where TMX data is absent and will route onward without affecting scores.
+    review_graph.add_node("tmx_faithfulness", evaluate_tmx_faithfulness)
     review_graph.add_node("grammar_correctness", evaluate_grammar_correctness) 
     review_graph.add_node("style_adherence", evaluate_style_adherence)
     review_graph.add_node("aggregator", aggregate_review_scores)

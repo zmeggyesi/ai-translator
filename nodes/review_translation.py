@@ -141,9 +141,9 @@ def review_translation(state: TranslationState) -> dict:
             response: Any = llm.invoke(prompt_messages)
         elif hasattr(llm, "__ror__"):
             # Fallback for mocked implementations in tests
-            chain = llm.__ror__(prompt_messages)
+            chain: Any = llm.__ror__(prompt_messages)  # type: ignore[operator]
             if hasattr(chain, "invoke"):
-                response = chain.invoke(None)
+                response = chain.invoke(None)  # type: ignore[assignment]
             else:
                 raise TypeError(
                     "Fallback review chain produced by mocked LLM does not "

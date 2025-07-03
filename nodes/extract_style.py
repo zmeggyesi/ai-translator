@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import List
 import os
 
-from nodes.tmx_loader import parse_tmx_file
+from nodes.tmx_loader import parse_tmx_file, infer_style_guide_from_tmx
 
 logger = logging.getLogger(__name__)
 
@@ -78,117 +78,19 @@ def extract_style_guide(
     logger.info("Parsing TMX file for style extraction → %s", tmx_file)
     tmx_data = parse_tmx_file(str(tmx_file))
 
-    target_segments = _flatten_target_segments(tmx_data, source_language, target_language)
-    if not target_segments:
-        raise ValueError(
-            f"No target-language segments found for {source_language}->{target_language} in TMX"
-        )
+    # Leverage the shared TMX inference utility which already supports LLM + fallback
+    tmx_memory = {
+        "entries": _flatten_target_segments(tmx_data, source_language, target_language),
+        "language_pair": f"{source_language}->{target_language}",
+    }
 
-    # --- Simple heuristics ---------------------------------------------
-    word_counts = [len(seg.split()) for seg in target_segments if seg.strip()]
-    avg_len = sum(word_counts) / len(word_counts)
-
-    tone = (
-        "concise" if avg_len <= 12 else "moderately long" if avg_len <= 20 else "detailed"
-    )
-
-    exclam_pct = (
-        sum(1 for seg in target_segments if "!" in seg) / len(target_segments) * 100
-    )
-    quest_pct = (
-        sum(1 for seg in target_segments if "?" in seg) / len(target_segments) * 100
-    )
-
-    # ------------------------------------------------------------------
-    # Decide whether LLM can be used
-    # ------------------------------------------------------------------
-    use_llm = bool(os.getenv("OPENAI_API_KEY"))
-
-    if use_llm:
-        try:
-            from langchain_openai import ChatOpenAI
-            from langchain_core.prompts import ChatPromptTemplate
-
-            SAMPLE_COUNT = 50
-            sample_segments = target_segments[:SAMPLE_COUNT]
-
-            PROMPT = """
-You are a professional localisation specialist and technical writer.
-Analyse the example target-language segments below (originally translated
-from {source_language} to {target_language}).  Based on the patterns you see
-— tone, formality level, punctuation usage, domain-specific terminology,
-brand voice, common phrasing, etc. — produce a **Markdown** style guide that
-future translators should follow.
-
-The guide **must** include:
-1. Overall tone / formality description (e.g. friendly, formal, technical).
-2. Voice guidelines (active vs passive, first vs third person).
-3. Terminology consistency rules (highlight frequently used terms).
-4. Punctuation and typography preferences (Oxford comma, quote style).
-5. Country or region-specific conventions (spelling variants, units).
-6. Examples drawn from the corpus to illustrate rules (quote short phrases).
-
-Start the document with a H1 heading "Translation Style Guide" and use
-bullet points or sub-headings where appropriate.
-
-Statistical context you might find useful:
-- Average sentence length: ~{avg_len:.1f} words
-- Exclamation usage: {exclam_pct:.1f}% of segments
-- Question usage: {quest_pct:.1f}% of segments
-
-Example segments (max {SAMPLE_COUNT}):
-"""
-
-            # Build prompt messages ------------------------------------------------
-            prompt_template = ChatPromptTemplate.from_template(PROMPT)
-            prompt_messages = prompt_template.invoke(
-                {
-                    "source_language": source_language,
-                    "target_language": target_language,
-                    "avg_len": avg_len,
-                    "exclam_pct": exclam_pct,
-                    "quest_pct": quest_pct,
-                }
-            )
-
-            # Append examples as separate user message to keep formatting clean
-            examples_block = "\n".join(f"- {seg}" for seg in sample_segments)
-            prompt_messages.append({"role": "user", "content": examples_block})  # type: ignore[arg-type]
-
-            llm = ChatOpenAI(model="gpt-4o", temperature=0)
-            response = llm.invoke(prompt_messages)
-
-            style_guide_md = response.content.strip()
-            logger.info("LLM-generated style guide length: %d chars", len(style_guide_md))
-
-        except Exception as e:
-            logger.error("LLM style extraction failed (%s). Falling back to heuristics.", e)
-            use_llm = False  # fall back
-
-    if not use_llm:
-        # --- Compose heuristic guide -----------------------------------
-        lines = [
-            "# Translation Style Guide (Automatic Heuristic)",
-            "",
-            f"- Write in a {tone} style (average sentence length ≈ {avg_len:.1f} words).",
-            "- Maintain consistent punctuation and capitalisation.",
-            "- Prefer active voice and clear phrasing.",
-        ]
-
-        if exclam_pct > 5:
-            lines.append(
-                f"- Exclamation marks appear in ~{exclam_pct:.1f}% of segments; retain them when appropriate."
-            )
-        if quest_pct > 1:
-            lines.append(
-                f"- Questions occur in ~{quest_pct:.1f}% of segments; mirror the interrogative tone faithfully."
-            )
-
-        style_guide_md = "\n".join(lines) + "\n"
+    style_guide_md = infer_style_guide_from_tmx(tmx_memory, use_llm=True)
+    if not style_guide_md:
+        raise ValueError("Failed to generate style guide from TMX entries.")
 
     # Write out ----------------------------------------------------------
     out_path = Path(output_path)
     out_path.write_text(style_guide_md, encoding="utf-8")
-    logger.info("Style guide written → %s (via %s)", out_path, "LLM" if use_llm else "heuristics")
+    logger.info("Style guide written → %s", out_path)
 
     return style_guide_md

@@ -21,10 +21,18 @@ The module handles malformed XML gracefully and provides clear error messages.
 
 import logging
 import xml.etree.ElementTree as ET
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Any
 from pathlib import Path
 from rapidfuzz import fuzz
 from state import TranslationState
+import os
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+import random
+try:
+    import tiktoken
+except ImportError:  # pragma: no cover
+    tiktoken = None  # type: ignore
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -95,9 +103,17 @@ def parse_tmx_file(tmx_file_path: str) -> Dict[str, List[Dict]]:
                     continue
                     
                 lang = lang.lower()
+                # Extract the full textual content of the <seg> element *including* any
+                # nested inline tags (e.g. <bpt>, <ept>, <ph>). ``Element.text`` only
+                # captures the text preceding the first child which means segments that
+                # start with markup would be silently ignored.  We therefore join all
+                # pieces produced by ``itertext`` to faithfully reconstruct the full
+                # segment string.
                 seg = tuv.find('seg')
-                if seg is not None and seg.text:
-                    lang_segments[lang] = seg.text.strip()
+                if seg is not None:
+                    seg_text = "".join(seg.itertext()).strip()
+                    if seg_text:
+                        lang_segments[lang] = seg_text
             
             # Create translation pairs for all language combinations
             languages = list(lang_segments.keys())
@@ -252,3 +268,10 @@ def load_tmx_memory(state: TranslationState, tmx_file_path: str) -> dict:
     except Exception as e:
         logger.error(f"Error loading TMX memory: {e}")
         return {"tmx_memory": {"error": str(e), "entries": []}}
+
+
+# ---------------------------------------------------------------------------
+# Backwards-compat import for code that still references the old location.
+# The actual implementation now lives in :pymod:`nodes.style_guide`.
+# ---------------------------------------------------------------------------
+from nodes.style_guide import infer_style_guide_from_tmx  # noqa: F401,E402

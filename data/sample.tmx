@@ -1,54 +1,96 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<tmx version="1.4">
-  <header
-    creationtool="AI-Translator"
-    creationtoolversion="1.0"
-    datatype="PlainText"
-    segtype="sentence"
-    adminlang="en-us"
-    srclang="en"
-    o-tmf="TMX"
-  />
-  <body>
-    <tu tuid="1" usagecount="5" creationdate="20240101T120000Z">
-      <tuv xml:lang="en">
-        <seg>Hello world</seg>
-      </tuv>
-      <tuv xml:lang="fr">
-        <seg>Bonjour le monde</seg>
-      </tuv>
-    </tu>
-    <tu tuid="2" usagecount="3" creationdate="20240101T120000Z">
-      <tuv xml:lang="en">
-        <seg>How are you?</seg>
-      </tuv>
-      <tuv xml:lang="fr">
-        <seg>Comment allez-vous?</seg>
-      </tuv>
-    </tu>
-    <tu tuid="3" usagecount="8" creationdate="20240101T120000Z">
-      <tuv xml:lang="en">
-        <seg>Please enter your name and email address.</seg>
-      </tuv>
-      <tuv xml:lang="fr">
-        <seg>Veuillez saisir votre nom et votre adresse email.</seg>
-      </tuv>
-    </tu>
-    <tu tuid="4" usagecount="2" creationdate="20240101T120000Z">
-      <tuv xml:lang="en">
-        <seg>Thank you for your feedback.</seg>
-      </tuv>
-      <tuv xml:lang="fr">
-        <seg>Merci pour vos commentaires.</seg>
-      </tuv>
-    </tu>
-    <tu tuid="5" usagecount="10" creationdate="20240101T120000Z">
-      <tuv xml:lang="en">
-        <seg>Welcome to our application!</seg>
-      </tuv>
-      <tuv xml:lang="fr">
-        <seg>Bienvenue dans notre application!</seg>
-      </tuv>
-    </tu>
-  </body>
+<tmx version="1.4b">
+<header creationtool="easyling" adminlang="en-us" datatype="xml" creationtoolversion="1068-alcatel.470042764120752123" segtype="sentence" srclang="en-US" o-tmf="m-kzsb2sq4"/>
+<body>
+<tu tuid="">
+<tuv xml:lang="en-US">
+<seg><bpt i="1" type="bold">{}</bpt>Summer Extension<ept i="1">{}</ept></seg>
+</tuv>
+<tuv xml:lang="es-us">
+<seg><bpt i="1" type="bold">{}</bpt>Extensión de verano<ept i="1">{}</ept></seg>
+</tuv>
+</tu>
+<tu tuid="">
+<tuv xml:lang="en-US">
+<seg>For more information or to schedule an appointment, please call:</seg>
+</tuv>
+<tuv xml:lang="es-us">
+<seg>Para obtener más información o programar una cita, llame al</seg>
+</tuv>
+</tu>
+<tu tuid="">
+<tuv xml:lang="en-US">
+<seg>Your selection(s) must be offered by your employer.</seg>
+</tuv>
+<tuv xml:lang="es-us">
+<seg>Su empleador debe ofrecer los planes que usted elija.</seg>
+</tuv>
+</tu>
+<tu tuid="">
+<tuv xml:lang="en-US">
+<seg>1) Primary autonomic failure due to Parkinson’s disease, multiple system atrophy, or pure autonomic failure, OR 2) Dopamine beta hydroxylase deficiency, OR 3) Non-diabetic autonomic neuropathy</seg>
+</tuv>
+<tuv xml:lang="es-us">
+<seg>1) falla autonómica primaria debido a la enfermedad de Parkinson, atrofia de sistemas múltiples o falla autonómica pura O 2) deficiencia de dopamina beta-hidroxilasa, O 3) neuropatía autónoma no diabética.</seg>
+</tuv>
+</tu>
+<tu tuid="">
+<tuv xml:lang="en-US">
+<seg>The answer b.</seg>
+</tuv>
+<tuv xml:lang="es-us">
+<seg>La respuesta es la opción b.</seg>
+</tuv>
+</tu>
+<tu tuid="elwj9jvj_tm:jzNw801lAYQB0SEfKtUDiRGXErYwONeQ7mIRGyz/1ts=47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=#0">
+<tuv xml:lang="en-US">
+<seg>logo top</seg>
+</tuv>
+<tuv xml:lang="es-US">
+<seg>logo top</seg>
+</tuv>
+</tu>
+<tu tuid="">
+<tuv xml:lang="en-US">
+<seg><bpt i="1" type="bold">{}</bpt>X-Ray And Pathology<ept i="1">{}</ept></seg>
+</tuv>
+<tuv xml:lang="es-us">
+<seg><bpt i="1" type="bold">{}</bpt>Radiografías y patología<ept i="1">{}</ept></seg>
+</tuv>
+</tu>
+<tu tuid="">
+<tuv xml:lang="en-US">
+<seg>We choose our network doctors from multiple specialty types as well as primary care.</seg>
+</tuv>
+<tuv xml:lang="es-us">
+<seg>Elegimos a los médicos de nuestra red entre diversos tipos de proveedores de atención primaria y especialistas.</seg>
+</tuv>
+</tu>
+<tu tuid="elwj9jvj_tm:iC+leQkRUFQqzi8RV+Bp7Mn0y68w+19ZzjPG8e28dlo=mOXi8UP0Zx0ZzD3nOB3gFjX+9Ez+EVr3HcbwGmGCh3M=#0">
+<tuv xml:lang="en-US">
+<seg><bpt ctype="x-g" equiv-text="[" id="_0">&lt;g id=&quot;_0&quot;&gt;
+                                    </bpt><bpt ctype="x-g" equiv-text="[" id="_1">&lt;g id=&quot;_1&quot;&gt;
+                                        </bpt><ph ctype="x-x" equiv-text="[]" id="_2">&lt;x ctype=&quot;x-prune&quot; equiv-text=&quot;&quot; id=&quot;_2&quot;/&gt;
+                                    </ph><ept ctype="x-g" equiv-text="]" id="_1">&lt;/g&gt;
+                                    </ept>Emilda Gomez<ept ctype="x-g" equiv-text="]" id="_0">
+                                &lt;/g&gt;</ept></seg>
+</tuv>
+<tuv xml:lang="es-US">
+<seg><bpt ctype="x-g" equiv-text="[" id="_0">&lt;g id=&quot;_0&quot; xml:space=&quot;default&quot;&gt;
+                                    </bpt><bpt ctype="x-g" equiv-text="[" id="_1">&lt;g id=&quot;_1&quot;&gt;
+                                        </bpt><ph ctype="x-x" equiv-text="[]" id="_2">&lt;x ctype=&quot;x-prune&quot; equiv-text=&quot;&quot; id=&quot;_2&quot;/&gt;
+                                    </ph><ept ctype="x-g" equiv-text="]" id="_1">&lt;/g&gt;
+                                    </ept>Emilda Gomez<ept ctype="x-g" equiv-text="]" id="_0">
+                                &lt;/g&gt;</ept></seg>
+</tuv>
+</tu>
+<tu tuid="elwj9jvj_tm:iC+leQkRUFQqzi8RV+Bp7Mn0y68w+19ZzjPG8e28dlo=zQqphWFHtsW0/yt9/uXaIKo4JTCZ7xtKZKztIzya/ik=#0">
+<tuv xml:lang="en-US">
+<seg><bpt ctype="x-g" equiv-text="[" id="_0">&lt;g id=&quot;_0&quot;&gt;</bpt>Emilda Gomez<ept ctype="x-g" equiv-text="]" id="_0">&lt;/g&gt;</ept></seg>
+</tuv>
+<tuv xml:lang="es-US">
+<seg><bpt ctype="x-g" equiv-text="[" id="_0">&lt;g id=&quot;_0&quot; xml:space=&quot;default&quot;&gt;</bpt>Emilda Gomez<ept ctype="x-g" equiv-text="]" id="_0">&lt;/g&gt;</ept></seg>
+</tuv>
+</tu>
+</body>
 </tmx>

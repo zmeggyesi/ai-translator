@@ -21,9 +21,12 @@ import logging
 import os
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompt_values import PromptValue
 from state import TranslationState
 from langgraph.types import Command
-from typing import Literal
+from typing import Literal, Any
+from nodes.style_guide import infer_style_guide_from_tmx
+from nodes.utils import extract_response_content
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -85,6 +88,26 @@ def evaluate_style_adherence(state: TranslationState) -> Command[Literal["aggreg
     """
     logger.info("Evaluating style adherence...")
     
+    # -------------------------------------------------------------
+    # Handle missing style guide by inferring style from TMX entries
+    # -------------------------------------------------------------
+    style_guide = state.get("style_guide", "")
+    if not str(style_guide).strip():
+        try:
+            inferred = infer_style_guide_from_tmx(state.get("tmx_memory", {}))
+        except ValueError as exc:
+            logger.warning("Style guide inference failed: %s", exc)
+            inferred = ""
+
+        if inferred:
+            logger.info("No style guide provided; inferring style from TMX entries.")
+            style_guide = inferred
+        else:
+            logger.info("No style guide provided and no TMX entries available; proceeding without explicit style guidance.")
+    # Persist inferred style for rest of review pipeline
+    state["style_guide"] = style_guide
+    # -------------------------------------------------------------
+    
     # Check if we have the required content
     if not state.get("translated_content"):
         logger.error("No translated content found for style review")
@@ -112,10 +135,10 @@ def evaluate_style_adherence(state: TranslationState) -> Command[Literal["aggreg
         llm = ChatOpenAI(model="gpt-4o", temperature=0)
 
         # Prepare the prompt messages
-        prompt_messages = prompt.invoke({
+        prompt_messages: PromptValue = prompt.invoke({
             "original_content": state["original_content"],
             "translated_content": state["translated_content"],
-            "style_guide": state["style_guide"],
+            "style_guide": style_guide,
             "source_language": state["source_language"],
             "target_language": state["target_language"],
         })
@@ -124,12 +147,12 @@ def evaluate_style_adherence(state: TranslationState) -> Command[Literal["aggreg
 
         # Handle both real LLM and mock implementations (for testing)
         if hasattr(llm, "invoke"):
-            response = llm.invoke(prompt_messages)
+            response: Any = llm.invoke(prompt_messages)
         elif hasattr(llm, "__ror__"):
             # Fallback for mocked implementations in tests
-            chain = llm.__ror__(prompt_messages)
+            chain: Any = llm.__ror__(prompt_messages)  # type: ignore[operator]
             if hasattr(chain, "invoke"):
-                response = chain.invoke(None)
+                response = chain.invoke(None)  # type: ignore[assignment]
             else:
                 raise TypeError(
                     "Fallback style review chain produced by mocked LLM does not "
@@ -143,7 +166,7 @@ def evaluate_style_adherence(state: TranslationState) -> Command[Literal["aggreg
 
         # Parse the JSON response
         try:
-            response_content = response.content.strip()
+            response_content = extract_response_content(response).strip()
             
             # Handle cases where the LLM wraps the JSON in markdown code blocks
             if response_content.startswith("```") and response_content.endswith("```"):
@@ -174,7 +197,7 @@ def evaluate_style_adherence(state: TranslationState) -> Command[Literal["aggreg
             
         except (json.JSONDecodeError, ValueError, KeyError) as e:
             logger.error(f"Error parsing style review response: {e}")
-            logger.error(f"Raw response: {response.content}")
+            logger.error(f"Raw response: {extract_response_content(response)}")
             return Command(
                 update={
                     "style_adherence_score": 0.0,

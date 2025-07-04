@@ -23,9 +23,13 @@ import json
 import logging
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompt_values import PromptValue
 from state import TranslationState
 from nodes.tmx_loader import find_tmx_matches
+from nodes.style_guide import infer_style_guide_from_tmx
+from nodes.utils import extract_response_content
 import os
+from typing import Any
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -92,24 +96,19 @@ def translate_content(state: TranslationState) -> dict:
         # -------------------------------------------------------------
         style_guide = state.get("style_guide", "")
         if not str(style_guide).strip():
-            # No explicit style guide provided
-            if tmx_memory and "entries" in tmx_memory and tmx_memory["entries"]:
+            try:
+                inferred = infer_style_guide_from_tmx(tmx_memory)
+            except ValueError as exc:
+                logger.warning("Style guide inference failed: %s", exc)
+                inferred = ""
+
+            if inferred:
                 logger.info("No style guide provided; inferring style from TMX entries.")
-                # Use up to 5 examples with the highest usage_count to convey style
-                example_entries = sorted(
-                    tmx_memory["entries"],
-                    key=lambda e: e.get("usage_count", 0),
-                    reverse=True
-                )[:5]
-                examples_formatted = "\n".join(
-                    f"- \"{e['source']}\" -> \"{e['target']}\"" for e in example_entries
-                )
-                style_guide = (
-                    "The following examples illustrate the desired tone, register, and syntax. "
-                    "Maintain consistency with them:\n" + examples_formatted
-                )
+                style_guide = inferred
             else:
                 logger.info("No style guide provided and no TMX entries available; proceeding without explicit style guidance.")
+        # Persist inferred style guide back to state for downstream stages
+        state["style_guide"] = style_guide
         # -------------------------------------------------------------
 
         prompt = ChatPromptTemplate.from_template(TRANSLATION_PROMPT)
@@ -120,7 +119,7 @@ def translate_content(state: TranslationState) -> dict:
 
         # Prepare the prompt messages using the ChatPromptTemplate so that we can
         # invoke or otherwise pass them to the underlying model implementation.
-        prompt_messages = prompt.invoke({
+        prompt_messages: PromptValue = prompt.invoke({
             "original_content": state["original_content"],
             "style_guide": style_guide,
             "glossary": json.dumps(glossary, ensure_ascii=False),
@@ -139,14 +138,14 @@ def translate_content(state: TranslationState) -> dict:
         #     commonly implemented by simplistic mocks (see unit tests).
         # 3.  Raise a clear error if neither strategy is supported.
         if hasattr(llm, "invoke"):
-            response = llm.invoke(prompt_messages)
+            response: Any = llm.invoke(prompt_messages)
         elif hasattr(llm, "__ror__"):
             # Mocks used in unit-tests often rely on ``prompt_messages | llm`` which
             # triggers ``llm.__ror__(prompt_messages)``. We replicate that behaviour
-            # directly here to keep the implementation simple and dependency-free.
-            chain = llm.__ror__(prompt_messages)
+            # directly here while keeping static type checkers happy.
+            chain: Any = llm.__ror__(prompt_messages)  # type: ignore[operator]
             if hasattr(chain, "invoke"):
-                response = chain.invoke(None)
+                response = chain.invoke(None)  # type: ignore[assignment]
             else:
                 raise TypeError(
                     "Fallback translation chain produced by mocked LLM does not "
@@ -159,9 +158,7 @@ def translate_content(state: TranslationState) -> dict:
             )
 
         logger.info("Translation complete.")
-        # Real LLM responses provide the translated text in ``response.content``.
-        # Mocks used in tests mirror that interface, so we access it uniformly.
-        return {"translated_content": response.content}
+        return {"translated_content": extract_response_content(response)}
     
     except Exception as e:
         logger.error(f"Error during translation: {type(e).__name__}: {str(e)}")

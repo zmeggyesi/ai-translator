@@ -26,7 +26,11 @@ import logging
 import os
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompt_values import PromptValue
 from state import TranslationState
+from nodes.style_guide import infer_style_guide_from_tmx
+from nodes.utils import extract_response_content
+from typing import Any, cast
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -105,12 +109,32 @@ def review_translation(state: TranslationState) -> dict:
         glossary = state.get("filtered_glossary") or state.get("glossary", {})
         logger.debug(f"Using glossary for review: {glossary}")
 
+        # -------------------------------------------------------------
+        # Handle missing style guide by inferring style from TMX entries
+        # -------------------------------------------------------------
+        style_guide = state.get("style_guide", "")
+        if not str(style_guide).strip():
+            try:
+                inferred = infer_style_guide_from_tmx(state.get("tmx_memory", {}))
+            except ValueError as exc:
+                logger.warning("Style guide inference failed: %s", exc)
+                inferred = ""
+
+            if inferred:
+                logger.info("No style guide provided; inferring style from TMX entries.")
+                style_guide = inferred
+            else:
+                logger.info("No style guide provided and no TMX entries available; proceeding without explicit style guidance.")
+        # Persist for downstream nodes
+        state["style_guide"] = style_guide
+        # -------------------------------------------------------------
+
         # Prepare the prompt messages
-        prompt_messages = prompt.invoke({
+        prompt_messages: PromptValue = prompt.invoke({
             "original_content": state["original_content"],
             "translated_content": state["translated_content"],
             "glossary": json.dumps(glossary, ensure_ascii=False),
-            "style_guide": state["style_guide"],
+            "style_guide": style_guide,
             "source_language": state["source_language"],
             "target_language": state["target_language"],
         })
@@ -119,12 +143,12 @@ def review_translation(state: TranslationState) -> dict:
 
         # Handle both real LLM and mock implementations (for testing)
         if hasattr(llm, "invoke"):
-            response = llm.invoke(prompt_messages)
+            response: Any = llm.invoke(prompt_messages)
         elif hasattr(llm, "__ror__"):
             # Fallback for mocked implementations in tests
-            chain = llm.__ror__(prompt_messages)
+            chain: Any = llm.__ror__(prompt_messages)  # type: ignore[operator]
             if hasattr(chain, "invoke"):
-                response = chain.invoke(None)
+                response = chain.invoke(None)  # type: ignore[assignment]
             else:
                 raise TypeError(
                     "Fallback review chain produced by mocked LLM does not "
@@ -138,7 +162,7 @@ def review_translation(state: TranslationState) -> dict:
 
         # Parse the JSON response
         try:
-            response_content = response.content.strip()
+            response_content = extract_response_content(response).strip()
             
             # Handle cases where the LLM wraps the JSON in markdown code blocks
             if response_content.startswith("```") and response_content.endswith("```"):
@@ -166,7 +190,7 @@ def review_translation(state: TranslationState) -> dict:
             
         except (json.JSONDecodeError, ValueError, KeyError) as e:
             logger.error(f"Error parsing review response: {e}")
-            logger.error(f"Raw response: {response.content}")
+            logger.error(f"Raw response: {extract_response_content(response)}")
             return {
                 "review_score": 0.0,
                 "review_explanation": f"ERROR: Could not parse review response - {str(e)}"
@@ -206,7 +230,7 @@ def review_translation_standalone(
                and explanation is str (empty if score >= 0.7)
     """
     # Create a minimal state dict for the review function
-    state_dict = {
+    state_dict: dict = {
         "original_content": original_content,
         "translated_content": translated_content,
         "glossary": glossary,
@@ -218,9 +242,11 @@ def review_translation_standalone(
     }
     
     # Call the main review function
-    result = review_translation(state_dict)
-    
-    return result.get("review_score", 0.0), result.get("review_explanation", "")
+    result_ts = cast(TranslationState, review_translation(cast(TranslationState, state_dict)))
+    score_raw = result_ts.get("review_score")
+    score: float = float(score_raw or 0.0)
+    explanation: str = str(result_ts.get("review_explanation", ""))
+    return score, explanation
 
 
 if __name__ == "__main__":

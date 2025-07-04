@@ -336,8 +336,13 @@ def infer_style_guide_from_tmx(
     processed = 0
 
     # Initial prompt (without examples) to account for budget
-    prompt_stub = "Examples:\n"
-    current_tokens = token_len(prompt_stub)
+    prompt_stub = (
+        "You are a professional localization specialist. Analyse the following bilingual examples and produce a detailed, comprehensive style guide covering tone, register, punctuation, preferred constructions, formatting conventions, voice, and any notable stylistic patterns that will be usable by a human translator to guide their work. Focus on guidance applicable to future translations of similar content.\n\nExamples:\n{examples}\n\nSTYLE GUIDE:"
+    )
+    # Token count solely for the static prompt stub
+    prompt_stub_tokens: int = token_len(prompt_stub)
+    current_tokens: int = prompt_stub_tokens  # running total that includes examples
+    logger.debug("Prompt stub token count: %s", prompt_stub_tokens)
 
     for entry in sorted_entries:
         formatted = f'- "{entry.get("source", "")}" -> "{entry.get("target", "")}"'
@@ -345,11 +350,17 @@ def infer_style_guide_from_tmx(
         processed += 1
 
         if t > token_budget:
+            logger.warning(
+                "Single example exceeds token budget (%s > %s); skipping.",
+                t,
+                token_budget,
+            )
             continue  # Single example exceeds budget
 
-        if current_tokens + t <= token_budget and len(reservoir) < max_examples:
+        if current_tokens + t <= token_budget:
             reservoir.append((formatted, t))
             current_tokens += t
+            logger.debug("Added example to reservoir (size now %s)", len(reservoir))
         else:
             # Reservoir replacement with probability len(reservoir)/processed
             j = random.randint(0, processed - 1)
@@ -358,12 +369,25 @@ def infer_style_guide_from_tmx(
                 if current_tokens - old_t + t <= token_budget:
                     current_tokens = current_tokens - old_t + t
                     reservoir[j] = (formatted, t)
+                    logger.debug("Replaced example at reservoir index %s", j)
 
         if current_tokens >= token_budget:
+            logger.warning("Token budget exhausted during reservoir sampling.")
             break
 
     if not reservoir:
         raise ValueError("No suitable TMX examples available for style inference within token budget.")
+
+    # Summary of sampling outcome — include token usage information
+    examples_tokens: int = current_tokens - prompt_stub_tokens
+    logger.info(
+        "Selected %s examples out of %s TMX entries for style extraction (%.2f%%). Example tokens: %s — Prompt stub tokens: %s.",
+        len(reservoir),
+        len(entries),
+        (len(reservoir) / len(entries)) * 100.0 if entries else 0.0,
+        examples_tokens,
+        prompt_stub_tokens,
+    )
 
     examples_formatted = "\n".join(fmt for fmt, _ in reservoir)
 
@@ -374,7 +398,7 @@ def infer_style_guide_from_tmx(
     if use_llm and os.getenv("OPENAI_API_KEY"):
         try:
             prompt = ChatPromptTemplate.from_template(
-                """You are a professional localization specialist. Analyse the following bilingual examples and produce a comprehensive style guide (up to roughly three pages) covering tone, register, punctuation, preferred constructions, formatting conventions, voice, and any notable stylistic patterns. Focus on guidance applicable to future translations of similar content.\n\nExamples:\n{examples}\n\nSTYLE GUIDE:"""
+                prompt_stub
             )
             llm = ChatOpenAI(model="gpt-4o", temperature=0)
             messages = prompt.invoke({"examples": examples_formatted})

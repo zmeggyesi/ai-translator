@@ -267,7 +267,7 @@ def load_tmx_memory(state: TranslationState, tmx_file_path: str) -> dict:
 
 def infer_style_guide_from_tmx(
     tmx_memory: Optional[Dict[str, Any]],
-    max_examples: int = 5,
+    max_examples: int = 1000,
     use_llm: bool = True,
 ) -> str:
     """Infer a minimal style guide string based on TMX entries.
@@ -328,7 +328,7 @@ def infer_style_guide_from_tmx(
     if use_llm and os.getenv("OPENAI_API_KEY"):
         try:
             prompt = ChatPromptTemplate.from_template(
-                """You are a professional localization specialist. Analyse the following bilingual examples and produce a comprehensive style guide (up to roughly three pages) covering tone, register, punctuation, preferred constructions, formatting conventions, voice, and any notable stylistic patterns. Focus on guidance applicable to future translations of similar technical texts.\n\nExamples:\n{examples}\n\nSTYLE GUIDE:"""
+                """You are a professional localization specialist. Analyse the following bilingual examples and produce a comprehensive style guide (up to roughly three pages) covering tone, register, punctuation, preferred constructions, formatting conventions, voice, and any notable stylistic patterns. Focus on guidance applicable to future translations of similar content.\n\nExamples:\n{examples}\n\nSTYLE GUIDE:"""
             )
             llm = ChatOpenAI(model="gpt-4o", temperature=0)
             messages = prompt.invoke({"examples": examples_formatted})

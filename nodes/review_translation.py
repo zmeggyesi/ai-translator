@@ -28,7 +28,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.prompt_values import PromptValue
 from state import TranslationState
-from nodes.tmx_loader import infer_style_guide_from_tmx
+from nodes.style_guide import infer_style_guide_from_tmx
 from nodes.utils import extract_response_content
 from typing import Any, cast
 

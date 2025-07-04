@@ -3,7 +3,8 @@ from pathlib import Path
 from typing import List
 import os
 
-from nodes.tmx_loader import parse_tmx_file, infer_style_guide_from_tmx
+from nodes.tmx_loader import parse_tmx_file
+from nodes.style_guide import infer_style_guide_from_tmx
 
 logger = logging.getLogger(__name__)
 

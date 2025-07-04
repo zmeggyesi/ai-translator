@@ -25,7 +25,7 @@ from langchain_core.prompt_values import PromptValue
 from state import TranslationState
 from langgraph.types import Command
 from typing import Literal, Any
-from nodes.tmx_loader import infer_style_guide_from_tmx
+from nodes.style_guide import infer_style_guide_from_tmx
 from nodes.utils import extract_response_content
 
 # Configure logging

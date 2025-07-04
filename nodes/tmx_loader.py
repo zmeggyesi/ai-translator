@@ -28,6 +28,11 @@ from state import TranslationState
 import os
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
+import random
+try:
+    import tiktoken
+except ImportError:  # pragma: no cover
+    tiktoken = None  # type: ignore
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -311,15 +316,56 @@ def infer_style_guide_from_tmx(
         logger.warning("Could not sort TMX entries for style inference: %s", exc)
         sorted_entries = entries  # Fallback to original order
 
-    examples = sorted_entries[:max_examples]
-    if not examples:
-        raise ValueError("No suitable TMX examples available for style inference.")
+    # ------------------------------------------------------------------
+    # Token-budget aware reservoir sampling (120k tokens)
+    # ------------------------------------------------------------------
+    token_budget = 120_000
 
-    examples_formatted = "\n".join(
-        f'- "{e.get("source", "")}" -> "{e.get("target", "")}"'
-        for e in examples
-        if isinstance(e, dict)
-    )
+    # Determine encoding for token counting
+    if tiktoken is not None:
+        try:
+            encoding = tiktoken.encoding_for_model("gpt-4o")
+        except Exception:
+            encoding = tiktoken.get_encoding("cl100k_base")
+        token_len = lambda txt: len(encoding.encode(txt))  # type: ignore[arg-type]
+    else:
+        # Fallback: rough estimate – 1 token per 4 chars
+        token_len = lambda txt: max(1, len(txt) // 4)
+
+    reservoir: list[tuple[str,int]] = []
+    processed = 0
+
+    # Initial prompt (without examples) to account for budget
+    prompt_stub = "Examples:\n"
+    current_tokens = token_len(prompt_stub)
+
+    for entry in sorted_entries:
+        formatted = f'- "{entry.get("source", "")}" -> "{entry.get("target", "")}"'
+        t = token_len(formatted) + 1  # +1 for newline
+        processed += 1
+
+        if t > token_budget:
+            continue  # Single example exceeds budget
+
+        if current_tokens + t <= token_budget and len(reservoir) < max_examples:
+            reservoir.append((formatted, t))
+            current_tokens += t
+        else:
+            # Reservoir replacement with probability len(reservoir)/processed
+            j = random.randint(0, processed - 1)
+            if j < len(reservoir):
+                old_t = reservoir[j][1]
+                if current_tokens - old_t + t <= token_budget:
+                    current_tokens = current_tokens - old_t + t
+                    reservoir[j] = (formatted, t)
+
+        if current_tokens >= token_budget:
+            break
+
+    if not reservoir:
+        raise ValueError("No suitable TMX examples available for style inference within token budget.")
+
+    examples_formatted = "\n".join(fmt for fmt, _ in reservoir)
 
     if not examples_formatted.strip():
         raise ValueError("Failed to format TMX examples for style inference.")

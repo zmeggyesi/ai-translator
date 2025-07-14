@@ -9,7 +9,7 @@ The style extraction subsystem has been extended to parse and utilize PDF, DOCX,
 ## Features
 
 ### Supported File Types
-- **PDF**: Parses PDF files using PyPDF2
+- **PDF**: Parses PDF files using pypdf
 - **DOCX**: Parses DOCX files using python-docx
 - **DOC**: Basic DOC file support (limited, converts via python-docx)
 - **TMX**: Existing TMX file support (unchanged)
@@ -27,7 +27,7 @@ The style extraction subsystem has been extended to parse and utilize PDF, DOCX,
 
 #### 1. Document Parsers (`nodes/document_parsers.py`)
 - **Sentence Splitting**: NLTK-based tokenization with regex fallback
-- **PDF Parser**: Extracts text from PDF files using PyPDF2
+- **PDF Parser**: Extracts text from PDF files using pypdf
 - **DOCX Parser**: Extracts text from DOCX files including paragraphs and tables
 - **DOC Parser**: Basic DOC file support
 - **Unified Interface**: Common `parse_document()` function for all file types
@@ -117,7 +117,7 @@ style_guide = extract_style_guide_unified(
 ## Dependencies
 
 New dependencies added to `pyproject.toml`:
-- `pypdf2`: PDF parsing
+- `pypdf`: PDF parsing (replaces deprecated PyPDF2)
 - `python-docx`: DOCX parsing
 - `nltk`: Sentence tokenization
 
@@ -174,7 +174,11 @@ The changes maintain full backward compatibility:
 
 For users upgrading from previous versions:
 
-1. **Install Dependencies**: Run `uv add pypdf2 python-docx nltk`
+1. **Install Dependencies**: Run `uv add pypdf python-docx nltk`
 2. **Update CLI Usage**: Use new `--file-type` argument instead of `--tmx`
 3. **Optional Target Language**: Target language is now optional for documents
 4. **Same Output Format**: Style guides maintain the same markdown format
+
+### NLTK Setup
+
+The system automatically downloads required NLTK data on first use. It supports both newer (`punkt_tab`) and older (`punkt`) tokenizer models for maximum compatibility.

@@ -12,9 +12,9 @@ from typing import List, Optional, Dict, Any
 import re
 
 try:
-    import PyPDF2
+    import pypdf
 except ImportError:
-    PyPDF2 = None
+    pypdf = None
 
 try:
     from docx import Document
@@ -36,11 +36,22 @@ def _ensure_nltk_data():
     if nltk is None:
         raise ImportError("NLTK is required for sentence tokenization. Install with: pip install nltk")
     
+    # Try to find the tokenizer data, handling both old and new NLTK versions
     try:
-        nltk.data.find('tokenizers/punkt')
+        # Try the newer punkt_tab first (NLTK 3.8+)
+        nltk.data.find('tokenizers/punkt_tab')
     except LookupError:
-        logger.info("Downloading NLTK punkt tokenizer...")
-        nltk.download('punkt', quiet=True)
+        try:
+            # Try the older punkt format
+            nltk.data.find('tokenizers/punkt')
+        except LookupError:
+            # Download both to ensure compatibility
+            logger.info("Downloading NLTK punkt tokenizer...")
+            try:
+                nltk.download('punkt_tab', quiet=True)
+            except Exception:
+                # Fall back to older punkt if punkt_tab fails
+                nltk.download('punkt', quiet=True)
 
 
 def _basic_sentence_split(text: str) -> List[str]:
@@ -94,8 +105,8 @@ def parse_pdf(file_path: str, language: str = "english") -> List[str]:
         FileNotFoundError: If the PDF file doesn't exist
         ValueError: If the PDF cannot be parsed
     """
-    if PyPDF2 is None:
-        raise ImportError("PyPDF2 is required for PDF parsing. Install with: pip install PyPDF2")
+    if pypdf is None:
+        raise ImportError("pypdf is required for PDF parsing. Install with: pip install pypdf")
     
     pdf_path = Path(file_path)
     if not pdf_path.exists():
@@ -106,7 +117,7 @@ def parse_pdf(file_path: str, language: str = "english") -> List[str]:
     text_content = ""
     try:
         with open(pdf_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
+            pdf_reader = pypdf.PdfReader(file)
             
             for page_num, page in enumerate(pdf_reader.pages):
                 try:

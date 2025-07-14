@@ -74,6 +74,74 @@ class TestSentenceSplitting:
         sentences = split_into_sentences("   ")
         assert sentences == []
 
+    def test_ensure_nltk_data_punkt_tab(self):
+        """Test NLTK data download with punkt_tab (newer versions)."""
+        from nodes.document_parsers import _ensure_nltk_data
+        
+        with patch('nodes.document_parsers.nltk') as mock_nltk:
+            # Mock that punkt_tab is found
+            mock_nltk.data.find.return_value = True
+            
+            # Should not raise an exception
+            _ensure_nltk_data()
+            
+            # Should try to find punkt_tab first
+            mock_nltk.data.find.assert_called_with('tokenizers/punkt_tab')
+            mock_nltk.download.assert_not_called()
+
+    def test_ensure_nltk_data_punkt_fallback(self):
+        """Test NLTK data download with punkt fallback (older versions)."""
+        from nodes.document_parsers import _ensure_nltk_data
+        
+        with patch('nodes.document_parsers.nltk') as mock_nltk:
+            # Mock that punkt_tab is not found, but punkt is
+            mock_nltk.data.find.side_effect = [
+                LookupError("punkt_tab not found"),  # First call
+                True  # Second call for punkt
+            ]
+            
+            # Should not raise an exception
+            _ensure_nltk_data()
+            
+            # Should try both punkt_tab and punkt
+            assert mock_nltk.data.find.call_count == 2
+            mock_nltk.download.assert_not_called()
+
+    def test_ensure_nltk_data_download_punkt_tab(self):
+        """Test NLTK data download when neither punkt_tab nor punkt are found."""
+        from nodes.document_parsers import _ensure_nltk_data
+        
+        with patch('nodes.document_parsers.nltk') as mock_nltk:
+            # Mock that neither punkt_tab nor punkt are found
+            mock_nltk.data.find.side_effect = LookupError("not found")
+            
+            # Should not raise an exception
+            _ensure_nltk_data()
+            
+            # Should try to download punkt_tab
+            mock_nltk.download.assert_called_with('punkt_tab', quiet=True)
+
+    def test_ensure_nltk_data_download_punkt_fallback(self):
+        """Test NLTK data download fallback when punkt_tab download fails."""
+        from nodes.document_parsers import _ensure_nltk_data
+        
+        with patch('nodes.document_parsers.nltk') as mock_nltk:
+            # Mock that neither punkt_tab nor punkt are found
+            mock_nltk.data.find.side_effect = LookupError("not found")
+            # Mock that punkt_tab download fails
+            mock_nltk.download.side_effect = [
+                Exception("punkt_tab download failed"),  # First call
+                None  # Second call for punkt
+            ]
+            
+            # Should not raise an exception
+            _ensure_nltk_data()
+            
+            # Should try to download both punkt_tab and punkt
+            assert mock_nltk.download.call_count == 2
+            mock_nltk.download.assert_any_call('punkt_tab', quiet=True)
+            mock_nltk.download.assert_any_call('punkt', quiet=True)
+
 
 class TestDocumentParsing:
     """Tests for document parsing functionality."""
@@ -153,15 +221,15 @@ class TestPDFParsing:
     """Tests for PDF parsing functionality."""
 
     def test_parse_pdf_missing_dependency(self):
-        """Test PDF parsing without PyPDF2."""
-        with patch('nodes.document_parsers.PyPDF2', None):
-            with pytest.raises(ImportError, match="PyPDF2 is required"):
+        """Test PDF parsing without pypdf."""
+        with patch('nodes.document_parsers.pypdf', None):
+            with pytest.raises(ImportError, match="pypdf is required"):
                 from nodes.document_parsers import parse_pdf
                 parse_pdf("test.pdf")
 
     def test_parse_pdf_file_not_found(self):
         """Test PDF parsing with non-existent file."""
-        with patch('nodes.document_parsers.PyPDF2', MagicMock()):
+        with patch('nodes.document_parsers.pypdf', MagicMock()):
             from nodes.document_parsers import parse_pdf
             
             with pytest.raises(FileNotFoundError):
@@ -174,7 +242,7 @@ class TestPDFParsing:
         mock_page.extract_text.return_value = "This is a sentence. This is another sentence."
         mock_pdf_reader.pages = [mock_page]
         
-        with patch('nodes.document_parsers.PyPDF2') as mock_pypdf:
+        with patch('nodes.document_parsers.pypdf') as mock_pypdf:
             mock_pypdf.PdfReader.return_value = mock_pdf_reader
             
             with patch('nodes.document_parsers.split_into_sentences') as mock_split:
@@ -196,7 +264,7 @@ class TestPDFParsing:
         mock_page.extract_text.return_value = ""
         mock_pdf_reader.pages = [mock_page]
         
-        with patch('nodes.document_parsers.PyPDF2') as mock_pypdf:
+        with patch('nodes.document_parsers.pypdf') as mock_pypdf:
             mock_pypdf.PdfReader.return_value = mock_pdf_reader
             
             with patch('builtins.open', mock_open()):

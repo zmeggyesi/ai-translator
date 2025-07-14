@@ -13,7 +13,7 @@ dependencies = [
     "rich",
     "matplotlib",
     "networkx",
-    "pypdf2",
+    "pypdf",
     "python-docx",
     "nltk",
     "pytest>=8.4.1",

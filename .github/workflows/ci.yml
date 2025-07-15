@@ -1,0 +1,106 @@
+name: CI
+
+on:
+  push:
+    branches: [ "main", "builds" ]
+  pull_request:
+    branches: [ "main", "builds" ]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: "Python ${{ matrix.python-version }} ― Unit Tests"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: 🚀 Install UV package manager
+        run: |
+          python -m pip install --upgrade pip
+          pip install uv
+
+      # Optional: cache the UV virtualenv to speed up installs
+      - name: ⏫ Restore UV cache
+        id: uv-cache
+        uses: actions/cache@v4
+        with:
+          path: .venv
+          key: uv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+
+      - name: 📦 Install dependencies with UV
+        run: |
+          uv pip install -e .[dev]
+
+      - name: 🧪 Run test-suite (pytest)
+        run: |
+          uv pip install pytest pytest-mock
+          pytest -q
+
+      - name: 📊 Upload coverage (optional)
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: "pytest-report-${{ matrix.python-version }}"
+          path: .pytest_cache
+
+  # ------------------------------------------------------------
+  # Nuitka Build Job – manual on feature/*, automatic on tag push
+  # ------------------------------------------------------------
+  build:
+    if: |
+      (github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/heads/') && github.ref != 'refs/heads/master') ||
+      (github.event_name == 'push' && github.ref_type == 'tag' && github.ref == 'refs/heads/master')
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: 📥 Check-out repository
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          architecture: 'x64'
+          cache: 'pip'
+          cache-dependency-path: |
+            **/requirements*.txt
+
+      - name: 📦 Install dependencies
+        run: |
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: 🔨 Build executable with Nuitka
+        uses: Nuitka/Nuitka-Action@main
+        with:
+          nuitka-version: main
+          script-name: your_script.py  # TODO: replace with entry script
+          mode: app
+
+      - name: 📤 Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ runner.os }} Build
+          path: |
+            build/*.exe
+            build/*.bin
+            build/*.app/**/*
+            build/*.dist/**/*
+          include-hidden-files: true 

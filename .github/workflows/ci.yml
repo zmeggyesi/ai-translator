@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.15.3"]
 
     steps:
       - name: 📥 Checkout repository
@@ -43,11 +43,11 @@ jobs:
 
       - name: 📦 Install dependencies with UV
         run: |
-          uv pip install -e .[dev]
+          # Install all project & dev dependencies into system env
+          uv sync --system --all-groups
 
       - name: 🧪 Run test-suite (pytest)
         run: |
-          uv pip install pytest pytest-mock
           pytest -q
 
       - name: 📊 Upload coverage (optional)
@@ -74,10 +74,10 @@ jobs:
       - name: 📥 Check-out repository
         uses: actions/checkout@v4
 
-      - name: 🐍 Setup Python 3.10
+      - name: 🐍 Setup Python 3.15.3
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.15.3'
           architecture: 'x64'
           cache: 'pip'
           cache-dependency-path: |

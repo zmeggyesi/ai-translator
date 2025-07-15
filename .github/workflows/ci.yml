@@ -48,7 +48,7 @@ jobs:
 
       - name: 🧪 Run test-suite (pytest)
         run: |
-          pytest -q
+          uv run pytest -q
 
       - name: 📊 Upload coverage (optional)
         if: ${{ always() }}
@@ -85,7 +85,7 @@ jobs:
 
       - name: 📦 Install dependencies
         run: |
-          pip install -r requirements.txt -r requirements-dev.txt
+          uv sync --all-groups
 
       - name: 🔨 Build executable with Nuitka
         uses: Nuitka/Nuitka-Action@main

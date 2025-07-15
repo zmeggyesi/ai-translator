@@ -44,7 +44,7 @@ jobs:
       - name: 📦 Install dependencies with UV
         run: |
           # Install all project & dev dependencies into system env
-          uv sync --system --all-groups
+          uv sync --all-groups
 
       - name: 🧪 Run test-suite (pytest)
         run: |

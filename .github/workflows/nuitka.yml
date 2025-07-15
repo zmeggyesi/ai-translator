@@ -57,7 +57,7 @@ jobs:
           nuitka-version: main
           script-name: cli.py
           mode: standalone
-          output-dir: output
+          output-dir: build
           report: true
 
       - name: 📤 Upload build artifacts
@@ -65,7 +65,6 @@ jobs:
         with:
           name: ${{ runner.os }}-Build
           path: |
-            output/**/*
-            **/*.xml
             build/**/*
+            **/*.xml
           include-hidden-files: true 

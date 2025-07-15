@@ -22,8 +22,9 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "nuitka>=2.7.12",
     "pytest",
-    "pytest-mock"
+    "pytest-mock",
 ]
 
 [tool.pytest.ini_options]

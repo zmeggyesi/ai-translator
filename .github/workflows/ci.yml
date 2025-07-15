@@ -91,7 +91,7 @@ jobs:
         uses: Nuitka/Nuitka-Action@main
         with:
           nuitka-version: main
-          script-name: your_script.py  # TODO: replace with entry script
+          script-name: cli.py
           mode: app
 
       - name: 📤 Upload build artifacts

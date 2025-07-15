@@ -56,15 +56,13 @@ jobs:
         with:
           nuitka-version: main
           script-name: cli.py
-          mode: app
+          mode: standalone
+          output-dir: output
 
       - name: 📤 Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: ${{ runner.os }}-Build
           path: |
-            build/*.exe
-            build/*.bin
-            build/*.app/**/*
-            build/*.dist/**/*
+            output/**/*
           include-hidden-files: true 

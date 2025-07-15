@@ -140,13 +140,33 @@ python cli.py translate-file -i data/input.txt -sl English -l German          # 
 - `--visualize`: Generate visualization diagrams of the workflow  
 - `--viz-type {main,review,combined,all}`: Type of visualization to generate (default: combined when review is enabled)
 
-### 3b. Extract a Style Guide from TMX
+### 3b. Extract a Style Guide from TMX or Documents
 
+Extract from TMX file:
 ```bash
 python cli.py extract-style \
-  --tmx data/sample.tmx \
+  --input data/sample.tmx \
+  --file-type tmx \
   --source-language English \
   --target-language French \
+  --output extracted_style.md
+```
+
+Extract from PDF document:
+```bash
+python cli.py extract-style \
+  --input data/style_document.pdf \
+  --file-type pdf \
+  --source-language English \
+  --output extracted_style.md
+```
+
+Extract from DOCX document:
+```bash
+python cli.py extract-style \
+  --input data/style_document.docx \
+  --file-type docx \
+  --source-language English \
   --output extracted_style.md
 ```
 
@@ -162,9 +182,10 @@ python cli.py extract-glossary \
 
 #### Available command-line arguments (extract-style):
 
-- `-t, --tmx` **(required)**: TMX file to analyse
+- `-i, --input` **(required)**: Input file path
+- `-ft, --file-type` **(required)**: Type of input file (tmx, pdf, docx, doc)
 - `-sl, --source-language` **(required)**: Source language code
-- `-tl, --target-language` **(required)**: Target language code
+- `-tl, --target-language`: Target language code (required for TMX files)
 - `-o, --output` **(required)**: Output Markdown file
 
 #### Available command-line arguments (extract-glossary):

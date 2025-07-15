@@ -12,7 +12,12 @@ dependencies = [
     "rapidfuzz",
     "rich",
     "matplotlib",
-    "networkx"
+    "networkx",
+    "pypdf",
+    "python-docx",
+    "nltk",
+    "pytest>=8.4.1",
+    "pytest-mock>=3.14.1",
 ]
 
 [dependency-groups]

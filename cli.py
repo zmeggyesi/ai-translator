@@ -34,7 +34,7 @@ from state import TranslationState
 # ---------------------------------------------------------------------------
 # Local imports – these modules live in the repo
 # ---------------------------------------------------------------------------
-from nodes.extract_style import extract_style_guide
+from nodes.extract_style import extract_style_guide_unified
 from nodes.extract_glossary import extract_glossary
 from graph import create_translator
 from langgraph.checkpoint.memory import InMemorySaver
@@ -276,11 +276,15 @@ def _run_translation(args: argparse.Namespace) -> None:  # noqa: C901 – comple
 def _add_style_parser(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
     p = subparsers.add_parser(
         "extract-style",
-        help="Infer a style guide from a TMX file.",
+        help="Infer a style guide from a TMX file or document (PDF, DOCX, DOC).",
     )
-    p.add_argument("-t", "--tmx", required=True, help="Input TMX file")
+    p.add_argument("-i", "--input", required=True, help="Input file path")
+    p.add_argument("-ft", "--file-type", required=True, 
+                   choices=["tmx", "pdf", "docx", "doc"],
+                   help="Type of input file")
     p.add_argument("-sl", "--source-language", required=True, help="Source language code")
-    p.add_argument("-tl", "--target-language", required=True, help="Target language code")
+    p.add_argument("-tl", "--target-language", 
+                   help="Target language code (required for TMX files)")
     p.add_argument("-o", "--output", required=True, help="Output markdown file path")
     return p
 
@@ -289,13 +293,23 @@ def _run_extract_style(args: argparse.Namespace) -> None:
     load_dotenv()
     _setup_logging()
 
-    extract_style_guide(
-        tmx_path=args.tmx,
-        source_language=args.source_language,
-        target_language=args.target_language,
-        output_path=args.output,
-    )
-    print(f"Style guide written to {args.output}")
+    # Validate arguments based on file type
+    if args.file_type == "tmx" and not args.target_language:
+        print("Error: Target language is required for TMX files")
+        return
+
+    try:
+        extract_style_guide_unified(
+            file_path=args.input,
+            file_type=args.file_type,
+            source_language=args.source_language,
+            target_language=args.target_language,
+            output_path=args.output,
+        )
+        print(f"Style guide written to {args.output}")
+    except Exception as e:
+        print(f"Error: {e}")
+        return
 
 
 # ---------------------------------------------------------------------------

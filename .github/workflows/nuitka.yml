@@ -20,6 +20,7 @@ permissions:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         os: ${{ fromJSON(inputs.build_os == 'all' && '["macos-latest", "ubuntu-latest", "windows-latest"]' || format('["{0}"]', inputs.build_os)) }}
 

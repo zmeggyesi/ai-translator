@@ -46,6 +46,11 @@ jobs:
           uv sync --all-groups
           pip install -r requirements.txt
 
+      - name: 📦 Fix Numpy
+        run: |
+          pip uninstall -y numpy
+          pip install --pre --force-reinstall --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
+
       - name: 🔨 Build executable with Nuitka
         uses: Nuitka/Nuitka-Action@main
         env:

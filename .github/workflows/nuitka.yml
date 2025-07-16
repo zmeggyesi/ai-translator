@@ -67,4 +67,5 @@ jobs:
           path: |
             build/**/*
             **/*.xml
+            **/*.*
           include-hidden-files: true 

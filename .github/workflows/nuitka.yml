@@ -43,6 +43,7 @@ jobs:
       - name: 📦 Install dependencies with UV
         run: |
           uv sync --all-groups
+          pip install -r requirements.txt
 
       - name: 🔨 Build executable with Nuitka
         uses: Nuitka/Nuitka-Action@main

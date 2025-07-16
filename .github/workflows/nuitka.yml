@@ -40,13 +40,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install uv
 
-      - name: ⏫ Restore UV cache
-        id: uv-cache
-        uses: actions/cache@v4
-        with:
-          path: .venv
-          key: uv-${{ runner.os }}-3.13.5-${{ hashFiles('**/pyproject.toml') }}
-
       - name: 📦 Install dependencies with UV
         run: |
           uv sync --all-groups

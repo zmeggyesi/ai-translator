@@ -59,7 +59,6 @@ jobs:
           nuitka-version: main
           script-name: cli.py
           mode: app
-          output-dir: build
           report: true
           include-module: dotenv
           
@@ -69,7 +68,5 @@ jobs:
         with:
           name: ${{ runner.os }}-Build
           path: |
-            build/**/*
-            **/*.xml
-            **/*.*
+            build/**
           include-hidden-files: true 

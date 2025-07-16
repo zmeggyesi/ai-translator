@@ -58,11 +58,11 @@ jobs:
         with:
           nuitka-version: main
           script-name: cli.py
-          mode: standalone
+          mode: app
           output-dir: build
           report: true
           include-module: dotenv
-          disable-cache: true
+          
 
       - name: 📤 Upload build artifacts
         uses: actions/upload-artifact@v4

@@ -48,6 +48,8 @@ jobs:
 
       - name: 🔨 Build executable with Nuitka
         uses: Nuitka/Nuitka-Action@main
+        env:
+          MPLBACKEND: TkAgg
         with:
           nuitka-version: main
           script-name: cli.py

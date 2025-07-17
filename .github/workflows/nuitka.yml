@@ -1,7 +1,18 @@
 name: Nuitka Build
 
 on:
-  workflow_dispatch
+  workflow_dispatch:
+    inputs:
+      build_os:
+        description: 'Operating system to build for'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+        - all
+        - ubuntu-latest
+        - windows-latest
+        - macos-latest
 
 permissions:
   contents: read
@@ -9,8 +20,9 @@ permissions:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: ${{ fromJSON(inputs.build_os == 'all' && '["macos-latest", "ubuntu-latest", "windows-latest"]' || format('["{0}"]', inputs.build_os)) }}
 
     runs-on: ${{ matrix.os }}
 
@@ -23,28 +35,38 @@ jobs:
         with:
           python-version: '3.13.5'
           architecture: 'x64'
-          cache: 'pip'
-          cache-dependency-path: |
-            **/requirements*.txt
 
-      - name: 📦 Install dependencies
+      - name: 🚀 Install UV package manager
+        run: |
+          python -m pip install --upgrade pip
+          pip install uv
+
+      - name: 📦 Install dependencies with UV
         run: |
           uv sync --all-groups
+          pip install -r requirements.txt
+
+      - name: 📦 Fix Numpy
+        run: |
+          pip uninstall -y numpy
+          pip install --pre --force-reinstall --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple numpy
 
       - name: 🔨 Build executable with Nuitka
         uses: Nuitka/Nuitka-Action@main
+        env:
+          MPLBACKEND: TkAgg
         with:
           nuitka-version: main
           script-name: cli.py
           mode: app
+          report: true
+          include-module: dotenv
+          
 
       - name: 📤 Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ runner.os }} Build
+          name: ${{ runner.os }}-Build
           path: |
-            build/*.exe
-            build/*.bin
-            build/*.app/**/*
-            build/*.dist/**/*
+            build/**
           include-hidden-files: true 

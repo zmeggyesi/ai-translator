@@ -201,8 +201,19 @@ class TranslationGUI:
             self.logger.error(f"Failed to initialize style extraction tab: {e}")
             ttk.Label(style_tab, text="Error loading style extraction tab").pack(pady=20)
         
+        # Translation Tab - Task 3 completed
+        try:
+            self.translation_controller = TranslationTabController(
+                translation_tab,
+                status_callback=self.update_status,
+                progress_callback=self.set_progress
+            )
+            self.logger.info("Translation tab initialized")
+        except Exception as e:
+            self.logger.error(f"Failed to initialize translation tab: {e}")
+            ttk.Label(translation_tab, text="Error loading translation tab").pack(pady=20)
+        
         # Placeholder content for other tabs (will be implemented in future tasks)
-        ttk.Label(translation_tab, text="Translation tab content will be implemented in task 2").pack(pady=20)
         ttk.Label(glossary_tab, text="Glossary management tab content will be implemented in task 5").pack(pady=20)
         ttk.Label(resource_tab, text="Resource management tab content will be implemented in task 6").pack(pady=20)
         
@@ -212,6 +223,12 @@ class TranslationGUI:
             "style": style_tab,
             "glossary": glossary_tab,
             "resource": resource_tab
+        }
+        
+        # Store controller references for future use
+        self.controllers = {
+            "translation": getattr(self, 'translation_controller', None),
+            "style": getattr(self, 'style_controller', None)
         }
     
     def on_tab_changed(self, event):

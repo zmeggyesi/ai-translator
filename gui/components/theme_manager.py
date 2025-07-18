@@ -85,9 +85,14 @@ class ThemeManager:
         
         # Configure buttons
         self.style.configure("Primary.TButton", background=accent, foreground="white")
+        self.style.configure("Secondary.TButton", background=accent_light)
+        
+                # Configure button hover effects
         self.style.map("Primary.TButton",
-                     background=[("active", accent_light), ("pressed", accent_dark)],
-                     foreground=[("active", "white"), ("pressed", "white")])
+                      background=[("active", accent_light), ("pressed", accent_dark)],
+                      foreground=[("active", "white"), ("pressed", "white")])
+        self.style.map("Secondary.TButton",
+                      background=[("active", accent), ("pressed", accent_dark)])
         
         # Configure secondary buttons
         self.style.configure("Secondary.TButton", background=bg, foreground=fg)

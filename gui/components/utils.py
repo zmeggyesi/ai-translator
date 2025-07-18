@@ -46,6 +46,48 @@ def create_file_browser_row(parent: ttk.Frame, label_text: str, file_types: List
     return entry, browse_button
 
 
+def create_output_file_browser_row(parent: ttk.Frame, label_text: str, file_types: List[Tuple[str, str]],
+                                  callback: Optional[Callable[[str], None]] = None) -> Tuple[ttk.Entry, ttk.Button]:
+    """Create a row with a label, entry field, and browse button for output file selection.
+    This allows creating new files that don't exist yet.
+    
+    Args:
+        parent: Parent frame
+        label_text: Text for the label
+        file_types: List of file type tuples (description, extension)
+        callback: Optional callback function when a file is selected
+        
+    Returns:
+        Tuple of (entry_field, browse_button)
+    """
+    row = ttk.Frame(parent)
+    row.pack(fill=tk.X, expand=False, pady=2)
+    
+    label = ttk.Label(row, text=label_text, width=15, anchor=tk.W)
+    label.pack(side=tk.LEFT, padx=5)
+    
+    entry = ttk.Entry(row)
+    entry.pack(side=tk.LEFT, fill=tk.X, expand=True, padx=5)
+    
+    def browse_file():
+        # Use asksaveasfilename to allow creating new files
+        filename = filedialog.asksaveasfilename(
+            title=f"Save {label_text}",
+            filetypes=file_types,
+            defaultextension=file_types[0][1].replace("*", "") if file_types else ".md"
+        )
+        if filename:
+            entry.delete(0, tk.END)
+            entry.insert(0, filename)
+            if callback:
+                callback(filename)
+    
+    browse_button = ttk.Button(row, text="Browse...", command=browse_file)
+    browse_button.pack(side=tk.RIGHT, padx=5)
+    
+    return entry, browse_button
+
+
 def create_directory_browser_row(parent: ttk.Frame, label_text: str,
                                callback: Optional[Callable[[str], None]] = None) -> Tuple[ttk.Entry, ttk.Button]:
     """Create a row with a label, entry field, and browse button for directory selection.

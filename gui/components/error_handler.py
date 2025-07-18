@@ -8,13 +8,18 @@ from typing import Optional, Dict, Any, Callable
 import traceback
 import logging
 import os
+from pathlib import Path
+
+# Ensure log directory exists
+log_dir = Path.home() / ".translation-gui"
+log_dir.mkdir(parents=True, exist_ok=True)
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler(os.path.join(os.path.expanduser("~"), ".translation-gui", "error.log")),
+        logging.FileHandler(log_dir / "error.log"),
         logging.StreamHandler()
     ]
 )

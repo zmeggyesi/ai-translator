@@ -54,6 +54,19 @@ class BaseTabController:
         frame.pack(fill=tk.X, expand=False, pady=5)
         return frame
     
+    def create_button_row(self, parent_frame: ttk.Frame) -> ttk.Frame:
+        """Create a button row at the bottom of the specified parent frame.
+        
+        Args:
+            parent_frame: The parent frame to add the button row to
+            
+        Returns:
+            A new frame for buttons
+        """
+        button_frame = ttk.Frame(parent_frame, padding="5")
+        button_frame.pack(fill=tk.X, expand=False, pady=10)
+        return button_frame
+    
     def create_form_row(self, parent: ttk.Frame, label_text: str) -> ttk.Frame:
         """Create a form row with a label.
         
@@ -70,17 +83,4 @@ class BaseTabController:
         label = ttk.Label(row, text=label_text, width=15, anchor=tk.W)
         label.pack(side=tk.LEFT, padx=5)
         
-        return row
-    
-    def create_button_row(self, parent: ttk.Frame) -> ttk.Frame:
-        """Create a row for buttons.
-        
-        Args:
-            parent: Parent frame
-            
-        Returns:
-            A new frame for buttons
-        """
-        row = ttk.Frame(parent)
-        row.pack(fill=tk.X, expand=False, pady=5)
         return row

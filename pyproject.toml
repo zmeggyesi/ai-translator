@@ -19,6 +19,8 @@ dependencies = [
     "pytest>=8.4.1",
     "pytest-mock>=3.14.1",
     "dotenv>=0.9.9",
+    "requests",
+    "beautifulsoup4",
 ]
 
 [dependency-groups]

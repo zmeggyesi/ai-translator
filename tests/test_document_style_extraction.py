@@ -368,7 +368,7 @@ class TestStyleExtractionFromDocuments:
             )
             
             assert result == "TMX style guide"
-            mock_extract.assert_called_once_with("test.tmx", "English", "French", "output.md")
+            mock_extract.assert_called_once_with("test.tmx", "English", "French", "output.md", None)
 
     def test_extract_style_guide_unified_tmx_no_target_language(self):
         """Test unified style extraction with TMX but no target language."""
@@ -385,7 +385,7 @@ class TestStyleExtractionFromDocuments:
             )
             
             assert result == "Document style guide"
-            mock_extract.assert_called_once_with("test.pdf", "pdf", "English", "output.md")
+            mock_extract.assert_called_once_with("test.pdf", "pdf", "English", "output.md", None)
 
     def test_extract_style_guide_unified_unsupported_type(self):
         """Test unified style extraction with unsupported file type."""

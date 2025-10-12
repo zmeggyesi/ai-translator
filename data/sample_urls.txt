@@ -1,0 +1,8 @@
+# Sample URLs file for style extraction
+# Format: One URL per line
+# Lines starting with # are comments and will be ignored
+
+# Example news sites (replace with your actual URLs)
+https://www.f5.com/
+https://www.f5.com/solutions/web-app-and-api-protection
+https://www.f5.com/solutions/use-cases/ai-data-delivery

@@ -145,3 +145,160 @@ def infer_style_guide_from_tmx(
     return (
         "The following examples illustrate tone and syntax. Maintain consistency:\n" + examples_formatted
     )
+
+
+def rewrite_style_guide_template(
+    tmx_memory: Optional[Dict[str, Any]],
+    template_path: str,
+    max_examples: int = 1_000,
+) -> str:
+    """Rewrite an existing style guide template based on analyzed content.
+    
+    This function takes an existing style guide template and adapts it based on
+    the actual content patterns found in the provided TMX memory entries. It's
+    useful when you have a template style guide structure but want to customize
+    it to match the specific tone, vocabulary, and patterns of your content.
+    
+    Parameters
+    ----------
+    tmx_memory:
+        Dictionary with ``entries`` list containing content to analyze
+    template_path:
+        Path to the existing style guide template (Markdown file)
+    max_examples:
+        Upper bound on examples to use for analysis
+        
+    Returns
+    -------
+    str:
+        The rewritten style guide adapted to the analyzed content
+        
+    Raises
+    ------
+    ValueError:
+        If tmx_memory is invalid or template file cannot be read
+    RuntimeError:
+        If LLM call fails
+    """
+    from pathlib import Path
+    
+    if not tmx_memory or not isinstance(tmx_memory, dict):
+        raise ValueError("`tmx_memory` must be a dictionary from load_tmx_memory().")
+    
+    entries: List[Dict[str, Any]] | None = tmx_memory.get("entries")  # type: ignore
+    if not entries:
+        raise ValueError("`tmx_memory` does not contain any entries to analyze.")
+    
+    # Read the template file
+    template_file = Path(template_path)
+    if not template_file.exists():
+        raise FileNotFoundError(f"Template file not found: {template_path}")
+    
+    template_content = template_file.read_text(encoding="utf-8")
+    
+    # Sort and sample entries (same logic as infer_style_guide_from_tmx)
+    try:
+        sorted_entries = sorted(
+            entries,
+            key=lambda e: e.get("usage_count", 0) if isinstance(e, dict) else 0,
+            reverse=True,
+        )
+    except Exception as exc:
+        logger.warning("Could not sort TMX entries: %s", exc)
+        sorted_entries = entries
+    
+    # Token budget management
+    TOKEN_BUDGET = 100_000  # Leave room for template + instructions
+    
+    if tiktoken is not None:
+        try:
+            enc = tiktoken.encoding_for_model("gpt-4o")
+        except Exception:
+            enc = tiktoken.get_encoding("cl100k_base")
+        token_len = lambda s: len(enc.encode(s))  # type: ignore[arg-type]
+    else:
+        token_len = lambda s: max(1, len(s) // 4)
+    
+    # Sample content examples
+    reservoir: List[Tuple[str, int]] = []
+    current_tokens = 0
+    processed = 0
+    
+    for entry in sorted_entries[:max_examples]:
+        src = entry.get("source", "")
+        tgt = entry.get("target", "")
+        example = f'- "{src}" -> "{tgt}"'
+        t = token_len(example) + 1
+        processed += 1
+        
+        if t > TOKEN_BUDGET:
+            continue
+        
+        if current_tokens + t <= TOKEN_BUDGET and len(reservoir) < max_examples:
+            reservoir.append((example, t))
+            current_tokens += t
+        else:
+            j = random.randint(0, processed - 1)
+            if j < len(reservoir):
+                old_t = reservoir[j][1]
+                if current_tokens - old_t + t <= TOKEN_BUDGET:
+                    current_tokens = current_tokens - old_t + t
+                    reservoir[j] = (example, t)
+        
+        if current_tokens >= TOKEN_BUDGET:
+            break
+    
+    if not reservoir:
+        raise ValueError("No content examples fit within the token budget.")
+    
+    examples_formatted = "\n".join(ex for ex, _ in reservoir)
+    
+    # Require LLM for template rewriting
+    if not os.getenv("OPENAI_API_KEY"):
+        raise RuntimeError(
+            "Template rewriting requires an OpenAI API key. "
+            "Set the OPENAI_API_KEY environment variable."
+        )
+    
+    # Build the prompt
+    prompt_text = """You are a professional localization specialist tasked with adapting a style guide template.
+
+You have been given:
+1. An EXISTING STYLE GUIDE TEMPLATE that has the right structure and format
+2. ACTUAL CONTENT EXAMPLES from the source material that show real patterns, tone, and style
+
+Your task:
+- KEEP the structure and format of the template
+- ANALYZE the content examples to identify:
+  * Actual tone and voice patterns
+  * Real vocabulary and terminology used
+  * Sentence structure and pacing
+  * Level of formality or informality
+  * Any domain-specific characteristics
+- REWRITE the template sections to accurately reflect the analyzed content
+- Ensure the adapted guide would help translators match the style of the actual content
+- Preserve template placeholders like {{targetLanguage}} if present
+
+TEMPLATE:
+{template}
+
+CONTENT EXAMPLES TO ANALYZE:
+{examples}
+
+OUTPUT: The complete rewritten style guide that maintains the template structure but reflects the actual content patterns."""
+
+    prompt = ChatPromptTemplate.from_template(prompt_text)
+    llm = ChatOpenAI(model="gpt-5")
+    messages = prompt.invoke({
+        "template": template_content,
+        "examples": examples_formatted
+    })
+    
+    try:
+        if hasattr(llm, "invoke"):
+            resp = llm.invoke(messages)
+        else:  # mocked
+            resp = llm.__ror__(messages).invoke(None)  # type: ignore[attr-defined]
+        return getattr(resp, "content", str(resp)).strip()
+    except Exception as exc:
+        raise RuntimeError(f"LLM template rewriting failed: {exc}") from exc

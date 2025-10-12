@@ -276,16 +276,20 @@ def _run_translation(args: argparse.Namespace) -> None:  # noqa: C901 – comple
 def _add_style_parser(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
     p = subparsers.add_parser(
         "extract-style",
-        help="Infer a style guide from a TMX file or document (PDF, DOCX, DOC).",
+        help="Infer a style guide from a TMX file, document (PDF, DOCX, DOC), or URLs.",
     )
     p.add_argument("-i", "--input", required=True, help="Input file path")
     p.add_argument("-ft", "--file-type", required=True, 
-                   choices=["tmx", "pdf", "docx", "doc"],
+                   choices=["tmx", "pdf", "docx", "doc", "urls"],
                    help="Type of input file")
     p.add_argument("-sl", "--source-language", required=True, help="Source language code")
     p.add_argument("-tl", "--target-language", 
                    help="Target language code (required for TMX files)")
     p.add_argument("-o", "--output", required=True, help="Output markdown file path")
+    p.add_argument("--max-urls", type=int, 
+                   help="Maximum number of URLs to process (only for 'urls' file type)")
+    p.add_argument("--template", 
+                   help="Path to an existing style guide template to rewrite based on the analyzed content")
     return p
 
 
@@ -305,8 +309,13 @@ def _run_extract_style(args: argparse.Namespace) -> None:
             source_language=args.source_language,
             target_language=args.target_language,
             output_path=args.output,
+            max_urls=getattr(args, 'max_urls', None),
+            template_path=getattr(args, 'template', None),
         )
-        print(f"Style guide written to {args.output}")
+        if args.template:
+            print(f"Style guide rewritten from template and saved to {args.output}")
+        else:
+            print(f"Style guide written to {args.output}")
     except Exception as e:
         print(f"Error: {e}")
         return

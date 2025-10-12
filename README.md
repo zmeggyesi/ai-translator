@@ -53,10 +53,14 @@ translation/
 ├── cli.py               # Unified CLI (translate-file / extract-style / extract-glossary)
 ├── main.py               # Legacy CLI entry-point (translate-file only, still supported)
 ├── state.py              # TypedDict shared state definition
+├── docs/                 # Documentation files
+│   ├── TMX_INTEGRATION.md           # Technical TMX integration documentation
+│   ├── TMX_CLI_USAGE.md             # TMX CLI usage guide
+│   ├── DOCUMENT_STYLE_EXTRACTION.md # Document-based style extraction
+│   ├── URL_STYLE_EXTRACTION.md      # URL-based style extraction
+│   └── IMPLEMENTATION_SUMMARY.md    # Implementation details
 ├── pyproject.toml        # UV-compatible metadata + dependencies
 ├── uv.lock               # Machine-generated lock-file (UV)
-├── TMX_INTEGRATION.md    # Technical TMX integration documentation
-├── TMX_CLI_USAGE.md      # TMX CLI usage guide
 └── README.md             # You are here ✔
 ```
 
@@ -140,7 +144,7 @@ python cli.py translate-file -i data/input.txt -sl English -l German          # 
 - `--visualize`: Generate visualization diagrams of the workflow  
 - `--viz-type {main,review,combined,all}`: Type of visualization to generate (default: combined when review is enabled)
 
-### 3b. Extract a Style Guide from TMX or Documents
+### 3b. Extract a Style Guide from TMX, Documents, or URLs
 
 Extract from TMX file:
 ```bash
@@ -170,6 +174,38 @@ python cli.py extract-style \
   --output extracted_style.md
 ```
 
+Extract from URLs (web content):
+```bash
+python cli.py extract-style \
+  --input data/urls.txt \
+  --file-type urls \
+  --source-language English \
+  --output extracted_style.md \
+  --max-urls 10
+```
+
+The URLs file should contain one URL per line:
+```text
+# Company Blog Posts
+https://www.example.com/blog/article1
+https://www.example.com/blog/article2
+
+# Marketing Pages
+https://www.example.com/products/service1
+```
+
+**Rewrite existing template based on analyzed content:**
+```bash
+python cli.py extract-style \
+  --input data/urls.txt \
+  --file-type urls \
+  --source-language English \
+  --output adapted_style.md \
+  --template data/sample-style-guide.md
+```
+
+The `--template` option rewrites an existing style guide template to match the tone and patterns found in your analyzed content, preserving the template's structure and placeholders.
+
 ### 3c. Extract Glossary Terms
 
 ```bash
@@ -183,10 +219,12 @@ python cli.py extract-glossary \
 #### Available command-line arguments (extract-style):
 
 - `-i, --input` **(required)**: Input file path
-- `-ft, --file-type` **(required)**: Type of input file (tmx, pdf, docx, doc)
+- `-ft, --file-type` **(required)**: Type of input file (tmx, pdf, docx, doc, urls)
 - `-sl, --source-language` **(required)**: Source language code
 - `-tl, --target-language`: Target language code (required for TMX files)
 - `-o, --output` **(required)**: Output Markdown file
+- `--max-urls`: Maximum number of URLs to process (only for 'urls' file type)
+- `--template`: Path to an existing style guide template to rewrite based on analyzed content
 
 #### Available command-line arguments (extract-glossary):
 

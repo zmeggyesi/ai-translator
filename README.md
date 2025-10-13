@@ -223,7 +223,7 @@ The glossary extraction feature supports **three extraction methods** that can b
 
 **SpaCy Integration**: Uses language-specific stopwords from SpaCy models for more accurate filtering across 18+ languages. See `docs/SPACY_INTEGRATION.md` for details.
 
-**Combined Mode**: When both `--use-llm` and `--use-tfidf` flags are set, both algorithms run and results are merged (union of terms), keeping the highest score for any duplicates. This gives you the best of both worlds: LLM's semantic understanding plus TF-IDF's statistical importance.
+**Combined Mode**: When both `--use-llm` and `--use-tfidf` flags are set, both algorithms run and results are merged (union of terms). TF-IDF scores are normalized to match the LLM score scale for fair comparison, then the highest score is kept for any duplicates. This gives you the best of both worlds: LLM's semantic understanding plus TF-IDF's statistical importance.
 
 Extract glossary terms from plain text files:
 ```bash

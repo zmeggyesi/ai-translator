@@ -563,6 +563,49 @@ def write_glossary_csv(rows: List[Tuple[str, str, Optional[float]]], output_path
     logger.info("Glossary written → %s", out_file)
 
 
+def _normalize_scores(
+    terms_list: List[Tuple[str, float]], target_max: float
+) -> List[Tuple[str, float]]:
+    """Normalize scores to a target maximum value.
+    
+    Scales all scores so that the maximum score equals target_max.
+    This allows fair comparison between different scoring systems.
+    
+    Args:
+        terms_list: List of (term, score) tuples
+        target_max: Target maximum score after normalization
+    
+    Returns:
+        List of (term, normalized_score) tuples
+    
+    Example:
+        >>> terms = [("a", 0.5), ("b", 0.3), ("c", 0.1)]
+        >>> _normalize_scores(terms, 1.0)
+        [("a", 1.0), ("b", 0.6), ("c", 0.2)]
+    """
+    if not terms_list:
+        return []
+    
+    # Find current maximum score
+    current_max = max(score for _, score in terms_list)
+    
+    if current_max == 0:
+        return terms_list  # Avoid division by zero
+    
+    # Scale factor to reach target_max
+    scale_factor = target_max / current_max
+    
+    # Apply scaling
+    normalized = [(term, score * scale_factor) for term, score in terms_list]
+    
+    logger.info(
+        f"Normalized {len(terms_list)} scores: max {current_max:.4f} → {target_max:.4f} "
+        f"(scale factor: {scale_factor:.4f})"
+    )
+    
+    return normalized
+
+
 def extract_glossary(
     *,
     tmx: Optional[str] = None,
@@ -602,6 +645,7 @@ def extract_glossary(
     
     Note:
         - If both use_llm and use_tfidf are True, BOTH algorithms run and results are merged
+        - TF-IDF scores are normalized to match LLM scale before merging for fair comparison
         - When merging, the union of terms is returned with the highest score for duplicates
         - TF-IDF works best with multiple text segments (e.g., XLIFF files)
         - For single text files, TF-IDF is less effective than frequency-based extraction
@@ -653,6 +697,13 @@ def extract_glossary(
                     language=source_language,
                     max_ngram_size=max_ngram_size
                 )
+                
+                # Normalize scores to make them comparable
+                # Scale TF-IDF scores so max TF-IDF = max LLM
+                if llm_terms and tfidf_terms:
+                    llm_max = max(score for _, score in llm_terms)
+                    tfidf_terms = _normalize_scores(tfidf_terms, target_max=llm_max)
+                    logger.info("Normalized TF-IDF scores to match LLM scale for fair comparison")
                 
                 # Merge results: union of terms, keeping highest score for duplicates
                 terms_dict: Dict[str, float] = {}
@@ -726,6 +777,13 @@ def extract_glossary(
                     language=source_language,
                     max_ngram_size=max_ngram_size
                 )
+                
+                # Normalize scores to make them comparable
+                # Scale TF-IDF scores so max TF-IDF = max LLM
+                if llm_terms and tfidf_terms:
+                    llm_max = max(score for _, score in llm_terms)
+                    tfidf_terms = _normalize_scores(tfidf_terms, target_max=llm_max)
+                    logger.info("Normalized TF-IDF scores to match LLM scale for fair comparison")
                 
                 # Merge results: union of terms, keeping highest score for duplicates
                 terms_dict: Dict[str, float] = {}

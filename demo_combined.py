@@ -109,6 +109,7 @@ def demo_combined_extraction():
         print("-" * 70)
         print("Combined results merge both methods (union):")
         print("  • Keeps ALL unique terms from both algorithms")
+        print("  • Normalizes TF-IDF scores to LLM scale for fair comparison")
         print("  • For duplicates, keeps the HIGHEST score")
         print()
         
@@ -149,6 +150,7 @@ def demo_combined_extraction():
    • UNION of both methods = more comprehensive coverage
    • LLM catches what TF-IDF misses (semantic terms)
    • TF-IDF catches what LLM misses (statistical patterns)
+   • Score normalization ensures fair comparison
    • Highest scores preserved for duplicates
    • Best of both worlds!
         """)

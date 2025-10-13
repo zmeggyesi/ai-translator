@@ -312,6 +312,7 @@ uv run python cli.py extract-glossary --input file.xliff --use-llm --use-tfidf .
 - **Pros**: Best of both worlds - semantic understanding + statistical importance, union of results
 - **Cons**: Slowest (runs both), costs money (LLM), but most comprehensive
 - **Merging**: Takes union of terms, keeping highest score for duplicates
+- **Normalization**: TF-IDF scores are normalized to match LLM scale for fair comparison
 
 ## Performance
 

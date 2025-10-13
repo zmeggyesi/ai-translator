@@ -30,6 +30,7 @@ translation/
 │   ├── glossary.csv
 │   ├── input.txt
 │   ├── sample.tmx        # Sample TMX translation memory file
+│   ├── sample.xliff      # Sample XLIFF localization file
 │   └── style_guide.md
 ├── nodes/                # Individual LangGraph nodes
 │   ├── __init__.py
@@ -58,6 +59,7 @@ translation/
 │   ├── TMX_CLI_USAGE.md             # TMX CLI usage guide
 │   ├── DOCUMENT_STYLE_EXTRACTION.md # Document-based style extraction
 │   ├── URL_STYLE_EXTRACTION.md      # URL-based style extraction
+│   ├── XLIFF_GLOSSARY_EXTRACTION.md # XLIFF glossary extraction guide
 │   └── IMPLEMENTATION_SUMMARY.md    # Implementation details
 ├── pyproject.toml        # UV-compatible metadata + dependencies
 ├── uv.lock               # Machine-generated lock-file (UV)
@@ -208,12 +210,51 @@ The `--template` option rewrites an existing style guide template to match the t
 
 ### 3c. Extract Glossary Terms
 
+Extract glossary terms from plain text files:
 ```bash
 python cli.py extract-glossary \
   --input data/input.txt \
   --output glossary.csv \
   --source-language English \
   --target-language Spanish
+```
+
+Extract from XLIFF files (frequency-based):
+```bash
+python cli.py extract-glossary \
+  --input data/sample.xliff \
+  --source-language English \
+  --target-language Spanish \
+  --output glossary.csv
+```
+
+Extract from XLIFF files using LLM (intelligent term identification):
+```bash
+python cli.py extract-glossary \
+  --input data/sample.xliff \
+  --source-language English \
+  --target-language Spanish \
+  --output glossary.csv \
+  --use-llm
+```
+
+Limit the number of extracted terms:
+```bash
+python cli.py extract-glossary \
+  --input data/sample.xliff \
+  --source-language English \
+  --target-language Spanish \
+  --output glossary.csv \
+  --max-terms 20
+```
+
+Extract from TMX files (bilingual term pairs):
+```bash
+python cli.py extract-glossary \
+  --tmx data/sample.tmx \
+  --source-language English \
+  --target-language Spanish \
+  --output glossary.csv
 ```
 
 #### Available command-line arguments (extract-style):
@@ -229,9 +270,17 @@ python cli.py extract-glossary \
 #### Available command-line arguments (extract-glossary):
 
 - One of `-t/--tmx` *or* `-i/--input` **(required)**: Source to analyse 
+- `-ft, --file-type`: Type of input file (`text` or `xliff`, auto-detected if not specified)
 - `-o, --output` **(required)**: Output CSV file path
 - `-sl, --source-language` **(required)**: Source language
 - `-tl, --target-language` **(required)**: Target language (needed for TMX extraction)
+- `--use-llm`: Use LLM for intelligent term extraction (requires OpenAI API key)
+- `--max-terms`: Maximum number of terms to extract (default: 50)
+
+**Supported input formats:**
+- **Plain text** (.txt): Frequency-based or LLM-based monolingual term extraction
+- **XLIFF** (.xlf, .xliff): Localization interchange format with support for inline elements
+- **TMX** (.tmx): Translation memory format for bilingual term pair extraction
 
 #### Translation Review (Optional)
 
@@ -385,16 +434,49 @@ TMX (Translation Memory eXchange) files follow the industry-standard XML format 
 
 For more details, see `TMX_CLI_USAGE.md` and `TMX_INTEGRATION.md`.
 
+### XLIFF File Format
+
+XLIFF (XML Localization Interchange File Format) is the industry-standard format for exchanging localization data. The system supports XLIFF 1.x and 2.x:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en-US" target-language="es-ES">
+    <body>
+      <trans-unit id="1">
+        <source>Welcome to our enterprise platform</source>
+        <target>Bienvenido a nuestra plataforma empresarial</target>
+      </trans-unit>
+      <trans-unit id="2">
+        <source>Configure the <g id="1">API</g> settings</source>
+        <target>Configure los ajustes de la <g id="1">API</g></target>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>
+```
+
+**XLIFF Glossary Extraction Features:**
+- **Intelligent parsing**: Extracts text from trans-unit elements including inline elements (`<g>`, `<x>`, etc.)
+- **Dual extraction modes**:
+  - **Frequency-based**: Fast, free, identifies common terms
+  - **LLM-based**: Uses GPT-4 to identify domain-specific terminology, technical terms, and key concepts
+- **Automatic detection**: Recognizes `.xlf` and `.xliff` file extensions
+- **Namespace handling**: Works with both namespaced and non-namespaced XLIFF files
+
+For more details, see `docs/XLIFF_GLOSSARY_EXTRACTION.md`.
+
 ---
 ## Extending the Pipeline
 
 The system already includes enterprise-grade TMX (Translation Memory eXchange) support with exact matching, fuzzy matching, and quality validation. Additional extensions you could add:
 
 * **Enhanced TMX features** – Add TMX writing capabilities, usage statistics tracking, or advanced fuzzy matching algorithms.
+* **XLIFF translation support** – Extend the XLIFF parser to support full translation workflows (currently supports glossary extraction).
 * **Additional quality-assurance nodes** – e.g. back-translation consistency check, readability analysis.
 * **Persist history** – swap the in-memory `messages` list for a vector store or database.
 * **Alternative models** – patch `ChatOpenAI` with Anthropic/LLM of choice; the fallback logic in `translate_content.py` keeps tests untouched.
-* **Custom file format support** – extend loaders to support additional formats like XLIFF, JSON, YAML, or database sources.
+* **Custom file format support** – extend loaders to support additional formats like JSON, YAML, or database sources.
 * **Translation memory learning** – automatically build TMX files from high-scoring translations.
 
 PRs welcome 🎉

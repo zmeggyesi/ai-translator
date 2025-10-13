@@ -328,15 +328,27 @@ def _run_extract_style(args: argparse.Namespace) -> None:
 def _add_glossary_parser(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
     p = subparsers.add_parser(
         "extract-glossary",
-        help="Extract glossary term pairs either from TMX or a monolingual text file.",
+        help="Extract glossary term pairs from TMX, text, or XLIFF files.",
     )
     source = p.add_mutually_exclusive_group(required=True)
     source.add_argument("-t", "--tmx", help="TMX file to analyse")
-    source.add_argument("-i", "--input", help="Plain-text file to analyse")
+    source.add_argument("-i", "--input", help="Input file to analyse (text or XLIFF)")
 
+    p.add_argument("-ft", "--file-type", 
+                   choices=["text", "xliff"], 
+                   help="Type of input file (auto-detected if not specified)")
     p.add_argument("-sl", "--source-language", required=True, help="Source language code")
     p.add_argument("-tl", "--target-language", required=True, help="Target language code")
     p.add_argument("-o", "--output", required=True, help="Output CSV file path")
+    p.add_argument("--use-llm", action="store_true", 
+                   help="Use LLM for intelligent term extraction (requires OpenAI API key)")
+    p.add_argument("--max-terms", type=int, default=50,
+                   help="Maximum number of terms to extract (default: 50)")
+    p.add_argument("--min-significance", type=float, default=0.6,
+                   help="Minimum significance score threshold for LLM extraction (default: 0.6). "
+                        "Significance levels: 1.0=critical domain terms, 0.8-0.9=important specialized terms, "
+                        "0.6-0.7=useful frequent terms, 0.4-0.5=moderately important, 0.1-0.3=less critical. "
+                        "Lower values include more terms; higher values are more selective.")
     return p
 
 
@@ -344,14 +356,22 @@ def _run_extract_glossary(args: argparse.Namespace) -> None:
     load_dotenv()
     _setup_logging()
 
-    extract_glossary(
-        tmx=args.tmx,
-        input_file=args.input,
-        source_language=args.source_language,
-        target_language=args.target_language,
-        output=args.output,
-    )
-    print(f"Glossary written to {args.output}")
+    try:
+        extract_glossary(
+            tmx=args.tmx,
+            input_file=args.input,
+            file_type=getattr(args, 'file_type', None),
+            source_language=args.source_language,
+            target_language=args.target_language,
+            output=args.output,
+            use_llm=getattr(args, 'use_llm', False),
+            max_terms=getattr(args, 'max_terms', 50),
+            min_significance=getattr(args, 'min_significance', 0.6),
+        )
+        print(f"Glossary written to {args.output}")
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
 
 
 # ---------------------------------------------------------------------------

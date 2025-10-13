@@ -28,6 +28,11 @@ except ImportError:
     nltk = None
     sent_tokenize = None
 
+try:
+    import xml.etree.ElementTree as ET
+except ImportError:
+    ET = None
+
 logger = logging.getLogger(__name__)
 
 
@@ -255,6 +260,128 @@ def parse_document(file_path: str, file_type: str, language: str = "english") ->
         return parse_doc(file_path, language)
     else:
         raise ValueError(f"Unsupported file type: {file_type}. Supported types: pdf, docx, doc")
+
+
+def parse_xliff(file_path: str, extract_target: bool = False) -> List[str]:
+    """Parse XLIFF file and extract text segments from trans-unit elements.
+    
+    XLIFF (XML Localization Interchange File Format) is a standard XML format
+    used for localization. This parser extracts text content from trans-unit
+    elements, including any inline elements.
+    
+    Args:
+        file_path: Path to the XLIFF file
+        extract_target: If True, extract target text; if False, extract source text
+    
+    Returns:
+        List of text segments extracted from the XLIFF file
+    
+    Raises:
+        FileNotFoundError: If the XLIFF file doesn't exist
+        ValueError: If the XLIFF cannot be parsed
+    """
+    xliff_path = Path(file_path)
+    if not xliff_path.exists():
+        raise FileNotFoundError(f"XLIFF file not found: {file_path}")
+    
+    logger.info(f"Parsing XLIFF file: {file_path}")
+    
+    segments = []
+    
+    try:
+        tree = ET.parse(xliff_path)
+        root = tree.getroot()
+        
+        # XLIFF 1.x and 2.x have different namespaces
+        # Try to detect the namespace
+        namespace = ""
+        if root.tag.startswith("{"):
+            namespace = root.tag.split("}")[0] + "}"
+        
+        # Define the tag to look for
+        element_tag = "target" if extract_target else "source"
+        trans_unit_tag = f"{namespace}trans-unit"
+        element_full_tag = f"{namespace}{element_tag}"
+        
+        # Find all trans-unit elements
+        trans_units = root.findall(f".//{trans_unit_tag}")
+        
+        for trans_unit in trans_units:
+            # Find the source or target element
+            element = trans_unit.find(f".//{element_full_tag}")
+            if element is None:
+                # Try without namespace (for files without explicit namespace)
+                element = trans_unit.find(f".//{element_tag}")
+            
+            if element is not None:
+                # Extract all text including text from child elements
+                text_content = _extract_text_recursive(element)
+                if text_content.strip():
+                    segments.append(text_content.strip())
+        
+        # If no trans-units found with namespace, try without namespace
+        if not segments:
+            trans_units = root.findall(".//trans-unit")
+            for trans_unit in trans_units:
+                element = trans_unit.find(f".//{element_tag}")
+                if element is not None:
+                    text_content = _extract_text_recursive(element)
+                    if text_content.strip():
+                        segments.append(text_content.strip())
+    
+    except ET.ParseError as e:
+        raise ValueError(f"Failed to parse XLIFF file {file_path}: {e}")
+    except Exception as e:
+        raise ValueError(f"Error processing XLIFF file {file_path}: {e}")
+    
+    if not segments:
+        raise ValueError(f"No text segments found in XLIFF file: {file_path}")
+    
+    logger.info(f"Extracted {len(segments)} segments from XLIFF")
+    return segments
+
+
+def _extract_text_recursive(element) -> str:
+    """Recursively extract all text content from an XML element and its children.
+    
+    Skips formatting tags (bpt, ept, ph) that contain non-translatable codes.
+    
+    Args:
+        element: XML element to extract text from
+    
+    Returns:
+        Concatenated text content
+    """
+    # Tags that should be excluded from text extraction (contain formatting codes)
+    EXCLUDED_TAGS = {'bpt', 'ept', 'ph'}
+    
+    text_parts = []
+    
+    # Add the element's direct text
+    if element.text:
+        text_parts.append(element.text.strip())
+    
+    # Recursively process child elements
+    for child in element:
+        # Get the tag name without namespace
+        tag_name = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+        
+        # Skip formatting tags
+        if tag_name.lower() not in EXCLUDED_TAGS:
+            # Add child's text content
+            child_text = _extract_text_recursive(child)
+            if child_text:
+                text_parts.append(child_text)
+        
+        # Add tail text (text that comes after the child element)
+        if child.tail:
+            text_parts.append(child.tail.strip())
+    
+    # Join with space and normalize whitespace
+    result = " ".join(text_parts)
+    # Replace multiple spaces with single space
+    result = re.sub(r'\s+', ' ', result)
+    return result.strip()
 
 
 def create_document_entries(sentences: List[str], source_language: str) -> List[Dict[str, Any]]:

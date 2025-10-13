@@ -1,11 +1,19 @@
 import csv
+import json
 import logging
+import os
 import re
 from collections import Counter
 from pathlib import Path
-from typing import List, Tuple, Set, Optional
+from typing import List, Tuple, Set, Optional, Any, Dict
+
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompt_values import PromptValue
+from langchain_openai import ChatOpenAI
 
 from nodes.tmx_loader import parse_tmx_file
+from nodes.document_parsers import parse_xliff
+from nodes.utils import extract_response_content
 
 logger = logging.getLogger(__name__)
 
@@ -133,14 +141,246 @@ def extract_terms_from_text(text: str, top_n: int = 50) -> List[str]:
 
 
 # ---------------------------------------------------------------------------
+# LLM-based glossary extraction
+# ---------------------------------------------------------------------------
+
+GLOSSARY_EXTRACTION_PROMPT = """You are a terminology extraction expert. Your task is to identify significant words or phrases from the provided text that should be included in a translation glossary.
+
+Focus on:
+- Domain-specific terms and technical vocabulary
+- Product names, brand names, proper nouns, and other entity names
+- Key concepts and recurring phrases
+- Terms that require consistent translation
+- Industry jargon and specialized terminology
+
+Exclude:
+- Common words and stop words
+- Generic terms without specific domain meaning
+- Articles, prepositions, and conjunctions
+
+Text to analyze:
+{text}
+
+Source language: {source_language}
+
+Please identify and extract the most significant terms and phrases. Return a maximum of {max_terms} terms, prioritizing the most important and frequently occurring domain-specific terminology. Synonyms and terms related to the same concept should be included and not counted against the {max_terms} limit.
+
+For each term, assign a significance score from 0.0 to 1.0 based on:
+- **1.0**: Critical domain-specific terms (e.g., product names, technical jargon, key concepts)
+- **0.8-0.9**: Important specialized terms that require consistent translation
+- **0.6-0.7**: Useful domain terms that appear frequently
+- **0.4-0.5**: Moderately important terms
+- **0.1-0.3**: Less critical but potentially useful terms
+
+Only include a term in your final picks if its significance score is greater than {min_significance}.
+
+Return your response as a JSON array of objects, where each object has "term" and "significance" fields.
+
+Example format:
+[
+  {{"term": "API authentication", "significance": 0.95}},
+  {{"term": "database connection", "significance": 0.85}},
+  {{"term": "user credentials", "significance": 0.75}}
+]
+
+Your response (JSON array only):"""
+
+
+def _chunk_text(segments: List[str], max_tokens: int = 128000) -> List[str]:
+    """Split segments into chunks that fit within token limits.
+    
+    Args:
+        segments: List of text segments
+        max_tokens: Maximum tokens per chunk (rough estimate: ~4 chars = 1 token)
+    
+    Returns:
+        List of text chunks
+    """
+    chunks = []
+    current_chunk = []
+    current_length = 0
+    
+    # Rough estimate: 4 characters per token
+    max_chars = max_tokens * 4
+    
+    for segment in segments:
+        segment_length = len(segment)
+        
+        if current_length + segment_length > max_chars:
+            if current_chunk:
+                chunks.append("\n".join(current_chunk))
+                current_chunk = []
+                current_length = 0
+        
+        current_chunk.append(segment)
+        current_length += segment_length + 1  # +1 for newline
+    
+    if current_chunk:
+        chunks.append("\n".join(current_chunk))
+    
+    return chunks
+
+
+def extract_glossary_with_llm(
+    text_segments: List[str],
+    source_language: str,
+    max_chunks: Optional[int] = None,
+    max_terms_per_chunk: int = 50,
+    min_significance: float = 0.6,
+) -> List[Tuple[str, float]]:
+    """Extract glossary terms from text using LLM analysis.
+    
+    Args:
+        text_segments: List of text segments to analyze
+        source_language: Source language of the text
+        max_chunks: Maximum number of chunks to process (None = all)
+        max_terms_per_chunk: Maximum number of terms to extract per chunk (default: 50)
+        min_significance: Minimum significance score to include a term (default: 0.6)
+            Significance levels:
+            - 1.0: Critical domain-specific terms (product names, technical jargon, key concepts)
+            - 0.8-0.9: Important specialized terms requiring consistent translation
+            - 0.6-0.7: Useful domain terms appearing frequently
+            - 0.4-0.5: Moderately important terms
+            - 0.1-0.3: Less critical but potentially useful terms
+    
+    Returns:
+        List of tuples containing (term, significance_score), sorted by significance
+    
+    Raises:
+        ValueError: If OpenAI API key is not set
+        RuntimeError: If LLM call fails
+    """
+    if not os.getenv("OPENAI_API_KEY"):
+        raise ValueError("OPENAI_API_KEY is not set. Cannot perform LLM-based glossary extraction.")
+    
+    logger.info(f"Extracting glossary terms from {len(text_segments)} segments using LLM")
+    
+    # Chunk the text to fit within token limits
+    chunks = _chunk_text(text_segments)
+    
+    if max_chunks:
+        chunks = chunks[:max_chunks]
+    
+    logger.info(f"Processing {len(chunks)} text chunk(s)")
+    
+    # Store terms with their highest significance score
+    terms_dict: Dict[str, float] = {}
+    
+    prompt = ChatPromptTemplate.from_template(GLOSSARY_EXTRACTION_PROMPT)
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    
+    for i, chunk in enumerate(chunks, 1):
+        logger.info(f"Processing chunk {i}/{len(chunks)}")
+        
+        try:
+            # Prepare the prompt
+            prompt_messages: PromptValue = prompt.invoke({
+                "text": chunk,
+                "source_language": source_language,
+                "max_terms": max_terms_per_chunk,
+                "min_significance": min_significance,
+            })
+            
+            # Call the LLM
+            if hasattr(llm, "invoke"):
+                response: Any = llm.invoke(prompt_messages)
+            elif hasattr(llm, "__ror__"):
+                # Fallback for mocked implementations in tests
+                chain: Any = llm.__ror__(prompt_messages)  # type: ignore[operator]
+                if hasattr(chain, "invoke"):
+                    response = chain.invoke(None)  # type: ignore[assignment]
+                else:
+                    raise TypeError(
+                        "Fallback glossary extraction chain produced by mocked LLM does not "
+                        "expose an 'invoke' method as expected."
+                    )
+            else:
+                raise TypeError(
+                    "The provided language model must expose either an 'invoke' "
+                    "method or support piping via the '|' operator."
+                )
+            
+            # Extract and parse the response
+            content = extract_response_content(response)
+            
+            # Try to parse as JSON
+            try:
+                terms_data = json.loads(content)
+                if isinstance(terms_data, list):
+                    for item in terms_data:
+                        if isinstance(item, dict) and "term" in item and "significance" in item:
+                            term = item["term"].strip()
+                            significance = float(item["significance"])
+                            # Filter by minimum significance threshold
+                            if term and significance > min_significance:
+                                # Keep the highest significance score for each term
+                                if term not in terms_dict or significance > terms_dict[term]:
+                                    terms_dict[term] = significance
+                        elif isinstance(item, str):
+                            # Fallback for old format (plain strings)
+                            term = item.strip()
+                            if term:
+                                terms_dict[term] = 0.5  # Default significance
+                else:
+                    logger.warning(f"LLM response was not a list: {content}")
+            except json.JSONDecodeError:
+                # Try to extract JSON array from the response
+                json_match = re.search(r'\[.*\]', content, re.DOTALL)
+                if json_match:
+                    try:
+                        terms_data = json.loads(json_match.group())
+                        if isinstance(terms_data, list):
+                            for item in terms_data:
+                                if isinstance(item, dict) and "term" in item and "significance" in item:
+                                    term = item["term"].strip()
+                                    significance = float(item["significance"])
+                                    # Filter by minimum significance threshold
+                                    if term and significance > min_significance:
+                                        if term not in terms_dict or significance > terms_dict[term]:
+                                            terms_dict[term] = significance
+                                elif isinstance(item, str):
+                                    term = item.strip()
+                                    if term:
+                                        terms_dict[term] = 0.5
+                    except json.JSONDecodeError:
+                        logger.warning(f"Could not parse JSON from LLM response for chunk {i}")
+                else:
+                    logger.warning(f"No JSON array found in LLM response for chunk {i}")
+        
+        except Exception as exc:
+            logger.error(f"Error processing chunk {i}: {exc}")
+            continue
+    
+    logger.info(f"Extracted {len(terms_dict)} unique terms from {len(chunks)} chunk(s)")
+    
+    # Sort by significance (highest first), then alphabetically
+    sorted_terms = sorted(terms_dict.items(), key=lambda x: (-x[1], x[0]))
+    
+    return sorted_terms
+
+
+# ---------------------------------------------------------------------------
 # Public entry-point
 # ---------------------------------------------------------------------------
 
-def write_glossary_csv(rows: List[Tuple[str, str]], output_path: str):
+def write_glossary_csv(rows: List[Tuple[str, str, Optional[float]]], output_path: str):
+    """Write glossary to CSV file.
+    
+    Args:
+        rows: List of tuples containing (term, translation, significance)
+        output_path: Path to output CSV file
+    """
     out_file = Path(output_path)
     with out_file.open("w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
-        writer.writerow(["term", "translation"])
+        # Check if we have significance scores
+        has_significance = any(len(row) > 2 and row[2] is not None for row in rows)
+        
+        if has_significance:
+            writer.writerow(["term", "translation", "significance"])
+        else:
+            writer.writerow(["term", "translation"])
+        
         writer.writerows(rows)
     logger.info("Glossary written → %s", out_file)
 
@@ -149,20 +389,95 @@ def extract_glossary(
     *,
     tmx: Optional[str] = None,
     input_file: Optional[str] = None,
+    file_type: Optional[str] = None,
     source_language: str = "English",
     target_language: str = "Spanish",
     output: str = "glossary.csv",
+    use_llm: bool = False,
+    max_terms: int = 50,
+    min_significance: float = 0.6,
 ):
-    """Entry-point used by the CLI."""
+    """Extract glossary terms from various file formats.
+    
+    Args:
+        tmx: Path to TMX file (for bilingual extraction)
+        input_file: Path to input file (for monolingual extraction)
+        file_type: Type of input file ('text', 'xliff')
+        source_language: Source language
+        target_language: Target language
+        output: Output CSV file path
+        use_llm: Whether to use LLM for term extraction (for non-TMX files)
+        max_terms: Maximum number of terms to extract per chunk (default: 50)
+        min_significance: Minimum significance score threshold (default: 0.6)
+            Only applies to LLM-based extraction. Significance levels:
+            - 1.0: Critical domain-specific terms (product names, technical jargon)
+            - 0.8-0.9: Important specialized terms requiring consistent translation
+            - 0.6-0.7: Useful domain terms appearing frequently
+            - 0.4-0.5: Moderately important terms
+            - 0.1-0.3: Less critical but potentially useful terms
+            Lower values include more terms; higher values are more selective.
+    """
 
     if not tmx and not input_file:
         raise ValueError("Either a TMX file or an input file must be provided.")
 
     if tmx:
-        terms = extract_glossary_from_tmx(tmx, source_language, target_language)
+        terms_pairs = extract_glossary_from_tmx(tmx, source_language, target_language)
+        # TMX extraction returns (source, target) pairs without significance scores
+        terms = [(src, tgt, None) for src, tgt in terms_pairs]
         write_glossary_csv(terms, output)
     else:
         # Type checker: input_file is guaranteed not None in this branch
-        txt = Path(str(input_file)).read_text(encoding="utf-8")
-        terms = [(term, "") for term in extract_terms_from_text(txt)]
+        input_path = Path(str(input_file))
+        
+        if not input_path.exists():
+            raise FileNotFoundError(f"Input file not found: {input_file}")
+        
+        # Determine file type if not specified
+        if not file_type:
+            if input_path.suffix.lower() in ['.xlf', '.xliff']:
+                file_type = 'xliff'
+            else:
+                file_type = 'text'
+        
+        # Extract text based on file type
+        if file_type == 'xliff':
+            logger.info("Processing XLIFF file for glossary extraction")
+            text_segments = parse_xliff(str(input_path), extract_target=False)
+            
+            if use_llm:
+                logger.info("Using LLM-based extraction for XLIFF content")
+                terms_with_scores = extract_glossary_with_llm(
+                    text_segments, 
+                    source_language,
+                    max_terms_per_chunk=max_terms,
+                    min_significance=min_significance
+                )
+                # Convert to CSV format: (term, translation, significance)
+                terms = [(term, "", significance) for term, significance in terms_with_scores]
+            else:
+                # Combine segments and use frequency-based extraction
+                combined_text = "\n".join(text_segments)
+                terms_list = extract_terms_from_text(combined_text, top_n=max_terms)
+                # No significance scores for frequency-based extraction
+                terms = [(term, "", None) for term in terms_list]
+        else:
+            # Plain text file
+            txt = input_path.read_text(encoding="utf-8")
+            
+            if use_llm:
+                logger.info("Using LLM-based extraction for text content")
+                terms_with_scores = extract_glossary_with_llm(
+                    [txt], 
+                    source_language,
+                    max_terms_per_chunk=max_terms,
+                    min_significance=min_significance
+                )
+                # Convert to CSV format: (term, translation, significance)
+                terms = [(term, "", significance) for term, significance in terms_with_scores]
+            else:
+                terms_list = extract_terms_from_text(txt, top_n=max_terms)
+                # No significance scores for frequency-based extraction
+                terms = [(term, "", None) for term in terms_list]
+        
         write_glossary_csv(terms, output)

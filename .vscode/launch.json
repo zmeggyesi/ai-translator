@@ -1,0 +1,88 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Extract Glossary: TMX",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "cli",
+            "args": [
+                "extract-glossary",
+                "--tmx", "${workspaceFolder}/data/sample.tmx",
+                "--source-language", "en",
+                "--target-language", "es",
+                "--output", "${workspaceFolder}/data/glossary-debug.csv"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Extract Glossary: XLIFF",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "cli",
+            "args": [
+                "extract-glossary",
+                "--input", "${workspaceFolder}/data/sample.xliff",
+                "--file-type", "xliff",
+                "--source-language", "en",
+                "--target-language", "es",
+                "--output", "${workspaceFolder}/data/glossary-debug.csv"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Extract Glossary: XLIFF (with LLM)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "cli",
+            "args": [
+                "extract-glossary",
+                "--input", "${workspaceFolder}/data/sample.xliff",
+                "--file-type", "xliff",
+                "--source-language", "en",
+                "--target-language", "es",
+                "--output", "${workspaceFolder}/data/glossary-debug.csv",
+                "--use-llm",
+                "--max-terms", "100",
+                "--min-significance", "0.8"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        },
+        {
+            "name": "Extract Glossary: Text",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "cli",
+            "args": [
+                "extract-glossary",
+                "--input", "${workspaceFolder}/data/input.txt",
+                "--file-type", "text",
+                "--source-language", "en",
+                "--target-language", "es",
+                "--output", "${workspaceFolder}/data/glossary-debug.csv"
+            ],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "justMyCode": false,
+            "env": {
+                "PYTHONPATH": "${workspaceFolder}"
+            }
+        }
+    ]
+}
+

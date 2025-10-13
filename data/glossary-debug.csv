@@ -1,106 +1,111 @@
-term,translation
-A Midsummer Night's Dream,
-Ass's head,
-Athenian,
-Athenian garments,
-Athens,
-Bellowes-mender,
-Bergomask dance,
-Bottom,
-Bower,
-Canon errors,
-Caroll,
-Changeling,
-Changeling boy,
-Charm,
-Chink,
-Cobweb,
-Comedy of Pyramus and Thisby,
-Cranny,
-Cue,
-Cupid,
-Demetrius,
-Dowager,
-Duchess,
-Duke,
-Egeus,
-Elves,
-Enchantment,
-Enterlude,
-Epilogue,
-Fairies,
-Fairy King,
-Fairy Queen,
-First Folio,
-Flower of this purple die,
-Flute,
-Hecate,
-Helena,
-Henchman,
-Hermia,
-Hippolyta,
-Hobgoblin,
-Hymen,
-Hymn,
-Indian Boy,
-Interlude,
-Joiner,
-Lanthorne,
-Love juice,
-Love-in-idleness,
-Lovers,
-Lovers' quarrel,
-Lullaby,
-Lyon,
-Lysander,
-Mantle,
-Maze,
-Mechanicals,
-Midsummer,
-Moone,
-Moone-light,
-Moone-shine,
-Moonlight,
-Moonshine,
-Moth,
-Murrion flock,
-Mustardseed,
-Night's Dream,
-Night-rule,
-Nine men's morris,
-Ninus' tomb,
-Nuptial,
-Oberon,
-Palace wood,
-Paragon,
-Paramour,
-Pease-blossom,
-Peter Quince,
-Philostrate,
-Project Gutenberg,
-Prologue,
-Properties,
-Puck,
-Pucke,
-Pyramus,
-Rehearsal,
-Revels,
-Robin Goodfellow,
-Roundell,
-Shakespeare,
-Snout,
-Snug,
-Spell,
-Stage,
-Starveling,
-Tailor,
-Theseus,
-Thisby,
-Tinker,
-Titania,
-Transformation,
-Tyring house,
-Votress,
-Wall,
-Wall partition,
-Weaver,
+term,translation,significance
+Oberon,,1.0
+Pyramus,,1.0
+Thisby,,1.0
+Titania,,1.0
+Athenian,,0.9
+Demetrius,,0.9
+Fairy Queen,,0.9
+Hermia,,0.9
+Lysander,,0.9
+love potion,,0.9
+enter,,0.025229456433897346
+thou,,0.01924229367225983
+loue,,0.017177271731286286
+quin,,0.016997500859084014
+haue,,0.013421145796436579
+d,,0.01270764647360386
+thee,,0.012434229031921257
+shall,,0.01185394954600372
+lysander,,0.011850653492918646
+demetrius,,0.011848587057740672
+come,,0.011653620038900688
+gutenberg,,0.011468707121276013
+thes,,0.010788941335131494
+project,,0.010563244880532455
+hermia,,0.010287749574736951
+project gutenberg,,0.010153366957603731
+moone,,0.008725331769800265
+speake,,0.00859211022293674
+heere,,0.008543050234189139
+piramus,,0.008134936074206888
+night,,0.007887593809760857
+good,,0.007885437022388352
+play,,0.007883721748936848
+wall,,0.007683911882188829
+helena,,0.007378843012157691
+lord,,0.007265667149490201
+tita,,0.006873345152139629
+faire,,0.006784706539113434
+puck,,0.006743088334457181
+eyes,,0.006602180326832672
+doth,,0.006587045751013373
+hath,,0.00637664539903842
+neuer,,0.006289713348155615
+quince,,0.0062419287577389964
+away,,0.00606550550558828
+thisby,,0.006064069107258596
+egeus,,0.00576336016889516
+sweet,,0.005748470139994393
+s,,0.005703013310538336
+true,,0.00569211681348431
+bottome,,0.005540803254065353
+giue,,0.0053670047377890094
+pucke,,0.005309268292480172
+exit,,0.00529578681331383
+work,,0.0052835235106492824
+looke,,0.005276915653314052
+heare,,0.005252970085273474
+sleepe,,0.005057393497354523
+vpon,,0.005036023039270498
+follow,,0.004967601683318477
+fairy,,0.004962676441155865
+robin,,0.004961146312465819
+louers,,0.004941286356330778
+gone,,0.0048110078853708434
+thisbie,,0.004704521521132191
+comes,,0.004681884872204972
+stay,,0.004610175968660367
+lyon,,0.0046023855674619625
+know,,0.004495019907896511
+like,,0.004418579789696732
+works,,0.0043046562811005955
+duke,,0.004274716577502672
+tell,,0.004184127265775605
+st,,0.004183275164638867
+lion,,0.004073048780995585
+enter pucke,,0.004045853000674309
+dead,,0.004032707394762181
+peter,,0.004016425413769946
+theseus,,0.003936810079525797
+heart,,0.003865435566830332
+loues,,0.0038607761266074942
+section,,0.003851982662458281
+stand,,0.0037800186733048247
+downe,,0.0037617980654270572
+pray,,0.0037248213739429856
+foundation,,0.003715109547093529
+sweete,,0.0036948722723471306
+oberon,,0.00368396205304149
+peter quince,,0.0036737174803830653
+thinke,,0.003671992748014769
+athens,,0.0036656362412566513
+things,,0.0036540565123987304
+electronic,,0.0036203308992556527
+shine,,0.0036041613242857908
+leaue,,0.003578613044665904
+license,,0.003514258692482754
+wood,,0.0034846927113780825
+head,,0.0034449380622866193
+feare,,0.00342922549330592
+deme,,0.0033715441672285905
+tyta,,0.0033715441672285905
+dreame,,0.0033667540105727666
+hast,,0.0033593075399286567
+gentle,,0.003340549422987489
+terms,,0.0033125823229785
+hippolita,,0.0032907356623020105
+light,,0.0032758727613753295
+me,,0.0032699631505621976
+forth,,0.003268613978108282
+pyramus,,0.003229390850258764

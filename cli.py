@@ -342,8 +342,14 @@ def _add_glossary_parser(subparsers: argparse._SubParsersAction) -> argparse.Arg
     p.add_argument("-o", "--output", required=True, help="Output CSV file path")
     p.add_argument("--use-llm", action="store_true", 
                    help="Use LLM for intelligent term extraction (requires OpenAI API key)")
+    p.add_argument("--use-tfidf", action="store_true",
+                   help="Use TF-IDF for term extraction (best with multiple text segments like XLIFF). "
+                        "Can be combined with --use-llm to merge results from both methods.")
     p.add_argument("--max-terms", type=int, default=50,
                    help="Maximum number of terms to extract (default: 50)")
+    p.add_argument("--max-ngram-size", type=int, default=3,
+                   help="Maximum n-gram size for TF-IDF extraction (default: 3). "
+                        "1=unigrams only, 2=unigrams+bigrams, 3=unigrams+bigrams+trigrams")
     p.add_argument("--min-significance", type=float, default=0.6,
                    help="Minimum significance score threshold for LLM extraction (default: 0.6). "
                         "Significance levels: 1.0=critical domain terms, 0.8-0.9=important specialized terms, "
@@ -365,7 +371,9 @@ def _run_extract_glossary(args: argparse.Namespace) -> None:
             target_language=args.target_language,
             output=args.output,
             use_llm=getattr(args, 'use_llm', False),
+            use_tfidf=getattr(args, 'use_tfidf', False),
             max_terms=getattr(args, 'max_terms', 50),
+            max_ngram_size=getattr(args, 'max_ngram_size', 3),
             min_significance=getattr(args, 'min_significance', 0.6),
         )
         print(f"Glossary written to {args.output}")

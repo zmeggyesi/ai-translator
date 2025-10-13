@@ -7,8 +7,10 @@ from collections import Counter
 from pathlib import Path
 from typing import List, Tuple, Set, Optional, Any, Dict
 
+import numpy as np
 import spacy
 from spacy.lang.en import STOP_WORDS as EN_STOP_WORDS
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.prompt_values import PromptValue
@@ -194,6 +196,126 @@ def extract_terms_from_text(
     tokens = [tok for tok in tokens if tok not in stopwords and len(tok) > 3]
     freq = Counter(tokens)
     return [term for term, _ in freq.most_common(top_n)]
+
+
+def _preprocess_for_tfidf(text: str, language: str) -> str:
+    """Preprocess text for TF-IDF analysis.
+    
+    Args:
+        text: Input text
+        language: Language for stopword filtering
+    
+    Returns:
+        Preprocessed text with stopwords removed
+    """
+    stopwords = _get_stopwords(language)
+    tokens = [tok.lower() for tok in _tokenise(text)]
+    tokens = [tok for tok in tokens if tok not in stopwords and len(tok) > 3]
+    return " ".join(tokens)
+
+
+def extract_terms_with_tfidf(
+    text_segments: List[str],
+    top_n: int = 50,
+    language: str = "English",
+    max_ngram_size: int = 3,
+    min_df: int = 1,
+) -> List[Tuple[str, float]]:
+    """Extract terms from multiple text segments using TF-IDF analysis.
+    
+    TF-IDF (Term Frequency-Inverse Document Frequency) identifies terms that are
+    important within documents while filtering out common terms that appear across
+    many documents. Each text segment is treated as a separate document.
+    
+    Args:
+        text_segments: List of text segments (each treated as a document)
+        top_n: Number of top terms to return
+        language: Language for stopword filtering
+        max_ngram_size: Maximum n-gram size (1=unigrams, 2=bigrams, 3=trigrams, etc.)
+        min_df: Minimum document frequency (terms must appear in at least this many documents)
+    
+    Returns:
+        List of tuples containing (term, tfidf_score), sorted by score (highest first)
+    
+    Examples:
+        >>> segments = ["Machine learning is powerful", "Deep learning is advanced"]
+        >>> terms = extract_terms_with_tfidf(segments, top_n=5, max_ngram_size=2)
+        >>> # Returns terms like: [("machine learning", 0.85), ("deep learning", 0.82), ...]
+    """
+    if not text_segments:
+        logger.warning("No text segments provided for TF-IDF extraction")
+        return []
+    
+    if len(text_segments) < 2:
+        logger.warning(
+            "TF-IDF works best with multiple documents. "
+            "Consider using frequency-based extraction for single documents."
+        )
+    
+    logger.info(f"Extracting terms using TF-IDF from {len(text_segments)} text segments")
+    
+    # Preprocess all segments
+    preprocessed_segments = [
+        _preprocess_for_tfidf(segment, language) for segment in text_segments
+    ]
+    
+    # Filter out empty segments
+    preprocessed_segments = [seg for seg in preprocessed_segments if seg.strip()]
+    
+    if not preprocessed_segments:
+        logger.warning("All segments became empty after preprocessing")
+        return []
+    
+    logger.info(f"Preprocessed {len(preprocessed_segments)} non-empty segments")
+    
+    # Collect terms across all n-gram sizes
+    all_terms: Dict[str, float] = {}
+    
+    for n in range(1, max_ngram_size + 1):
+        logger.info(f"Processing {n}-grams...")
+        
+        try:
+            # Create TF-IDF vectorizer for this n-gram size
+            vectorizer = TfidfVectorizer(
+                ngram_range=(n, n),
+                min_df=min_df,
+                max_df=0.95,  # Ignore terms that appear in >95% of documents
+                lowercase=True,
+                token_pattern=r'\b\w+\b',
+            )
+            
+            # Fit and transform the documents
+            tfidf_matrix = vectorizer.fit_transform(preprocessed_segments)
+            feature_names = vectorizer.get_feature_names_out()
+            
+            # Calculate average TF-IDF score across all documents for each term
+            # This gives us a single importance score per term
+            avg_tfidf_scores = np.asarray(tfidf_matrix.mean(axis=0)).flatten()
+            
+            # Store terms with their scores
+            for term, score in zip(feature_names, avg_tfidf_scores):
+                if score > 0:  # Only include terms with non-zero scores
+                    # If term already exists, keep the higher score
+                    if term not in all_terms or score > all_terms[term]:
+                        all_terms[term] = score
+            
+            logger.info(f"Found {len(feature_names)} {n}-grams")
+            
+        except ValueError as e:
+            logger.warning(f"Could not extract {n}-grams: {e}")
+            continue
+    
+    if not all_terms:
+        logger.warning("No terms extracted with TF-IDF")
+        return []
+    
+    # Sort by TF-IDF score (highest first) and return top N
+    sorted_terms = sorted(all_terms.items(), key=lambda x: (-x[1], x[0]))
+    result = sorted_terms[:top_n]
+    
+    logger.info(f"Extracted {len(result)} terms using TF-IDF")
+    
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -450,8 +572,10 @@ def extract_glossary(
     target_language: str = "Spanish",
     output: str = "glossary.csv",
     use_llm: bool = False,
+    use_tfidf: bool = False,
     max_terms: int = 50,
     min_significance: float = 0.6,
+    max_ngram_size: int = 3,
 ):
     """Extract glossary terms from various file formats.
     
@@ -463,6 +587,7 @@ def extract_glossary(
         target_language: Target language
         output: Output CSV file path
         use_llm: Whether to use LLM for term extraction (for non-TMX files)
+        use_tfidf: Whether to use TF-IDF for term extraction (for non-TMX files with multiple segments)
         max_terms: Maximum number of terms to extract per chunk (default: 50)
         min_significance: Minimum significance score threshold (default: 0.6)
             Only applies to LLM-based extraction. Significance levels:
@@ -472,6 +597,14 @@ def extract_glossary(
             - 0.4-0.5: Moderately important terms
             - 0.1-0.3: Less critical but potentially useful terms
             Lower values include more terms; higher values are more selective.
+        max_ngram_size: Maximum n-gram size for TF-IDF extraction (default: 3)
+            1=unigrams only, 2=unigrams+bigrams, 3=unigrams+bigrams+trigrams
+    
+    Note:
+        - If both use_llm and use_tfidf are True, BOTH algorithms run and results are merged
+        - When merging, the union of terms is returned with the highest score for duplicates
+        - TF-IDF works best with multiple text segments (e.g., XLIFF files)
+        - For single text files, TF-IDF is less effective than frequency-based extraction
     """
 
     if not tmx and not input_file:
@@ -501,7 +634,42 @@ def extract_glossary(
             logger.info("Processing XLIFF file for glossary extraction")
             text_segments = parse_xliff(str(input_path), extract_target=False)
             
-            if use_llm:
+            # Check if we should run both LLM and TF-IDF
+            if use_llm and use_tfidf:
+                logger.info("Using BOTH LLM and TF-IDF extraction for XLIFF content (union of results)")
+                
+                # Run LLM extraction
+                llm_terms = extract_glossary_with_llm(
+                    text_segments, 
+                    source_language,
+                    max_terms_per_chunk=max_terms,
+                    min_significance=min_significance
+                )
+                
+                # Run TF-IDF extraction
+                tfidf_terms = extract_terms_with_tfidf(
+                    text_segments,
+                    top_n=max_terms,
+                    language=source_language,
+                    max_ngram_size=max_ngram_size
+                )
+                
+                # Merge results: union of terms, keeping highest score for duplicates
+                terms_dict: Dict[str, float] = {}
+                for term, score in llm_terms:
+                    terms_dict[term] = score
+                for term, score in tfidf_terms:
+                    if term not in terms_dict or score > terms_dict[term]:
+                        terms_dict[term] = score
+                
+                # Sort by score (highest first), then alphabetically
+                sorted_terms = sorted(terms_dict.items(), key=lambda x: (-x[1], x[0]))
+                logger.info(f"Merged results: {len(llm_terms)} LLM terms + {len(tfidf_terms)} TF-IDF terms = {len(sorted_terms)} unique terms")
+                
+                # Convert to CSV format
+                terms = [(term, "", score) for term, score in sorted_terms]
+                
+            elif use_llm:
                 logger.info("Using LLM-based extraction for XLIFF content")
                 terms_with_scores = extract_glossary_with_llm(
                     text_segments, 
@@ -511,6 +679,16 @@ def extract_glossary(
                 )
                 # Convert to CSV format: (term, translation, significance)
                 terms = [(term, "", significance) for term, significance in terms_with_scores]
+            elif use_tfidf:
+                logger.info("Using TF-IDF extraction for XLIFF content")
+                terms_with_scores = extract_terms_with_tfidf(
+                    text_segments,
+                    top_n=max_terms,
+                    language=source_language,
+                    max_ngram_size=max_ngram_size
+                )
+                # Convert to CSV format: (term, translation, tfidf_score)
+                terms = [(term, "", score) for term, score in terms_with_scores]
             else:
                 # Combine segments and use frequency-based extraction
                 combined_text = "\n".join(text_segments)
@@ -523,7 +701,48 @@ def extract_glossary(
             # Plain text file
             txt = input_path.read_text(encoding="utf-8")
             
-            if use_llm:
+            # Check if we should run both LLM and TF-IDF
+            if use_llm and use_tfidf:
+                logger.info("Using BOTH LLM and TF-IDF extraction for text content (union of results)")
+                
+                # Run LLM extraction
+                llm_terms = extract_glossary_with_llm(
+                    [txt], 
+                    source_language,
+                    max_terms_per_chunk=max_terms,
+                    min_significance=min_significance
+                )
+                
+                # Run TF-IDF extraction (split into paragraphs)
+                paragraphs = [p.strip() for p in txt.split('\n\n') if p.strip()]
+                if not paragraphs:
+                    paragraphs = [p.strip() for p in txt.split('\n') if p.strip()]
+                
+                logger.info(f"Split text into {len(paragraphs)} paragraphs for TF-IDF")
+                
+                tfidf_terms = extract_terms_with_tfidf(
+                    paragraphs,
+                    top_n=max_terms,
+                    language=source_language,
+                    max_ngram_size=max_ngram_size
+                )
+                
+                # Merge results: union of terms, keeping highest score for duplicates
+                terms_dict: Dict[str, float] = {}
+                for term, score in llm_terms:
+                    terms_dict[term] = score
+                for term, score in tfidf_terms:
+                    if term not in terms_dict or score > terms_dict[term]:
+                        terms_dict[term] = score
+                
+                # Sort by score (highest first), then alphabetically
+                sorted_terms = sorted(terms_dict.items(), key=lambda x: (-x[1], x[0]))
+                logger.info(f"Merged results: {len(llm_terms)} LLM terms + {len(tfidf_terms)} TF-IDF terms = {len(sorted_terms)} unique terms")
+                
+                # Convert to CSV format
+                terms = [(term, "", score) for term, score in sorted_terms]
+                
+            elif use_llm:
                 logger.info("Using LLM-based extraction for text content")
                 terms_with_scores = extract_glossary_with_llm(
                     [txt], 
@@ -533,6 +752,25 @@ def extract_glossary(
                 )
                 # Convert to CSV format: (term, translation, significance)
                 terms = [(term, "", significance) for term, significance in terms_with_scores]
+            elif use_tfidf:
+                logger.info("Using TF-IDF extraction for text content")
+                # Split text into paragraphs for TF-IDF analysis
+                # Each paragraph becomes a separate document
+                paragraphs = [p.strip() for p in txt.split('\n\n') if p.strip()]
+                if not paragraphs:
+                    # Fallback: split by single newline
+                    paragraphs = [p.strip() for p in txt.split('\n') if p.strip()]
+                
+                logger.info(f"Split text into {len(paragraphs)} paragraphs for TF-IDF")
+                
+                terms_with_scores = extract_terms_with_tfidf(
+                    paragraphs,
+                    top_n=max_terms,
+                    language=source_language,
+                    max_ngram_size=max_ngram_size
+                )
+                # Convert to CSV format: (term, translation, tfidf_score)
+                terms = [(term, "", score) for term, score in terms_with_scores]
             else:
                 terms_list = extract_terms_from_text(
                     txt, top_n=max_terms, language=source_language

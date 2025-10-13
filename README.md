@@ -60,6 +60,7 @@ translation/
 │   ├── DOCUMENT_STYLE_EXTRACTION.md # Document-based style extraction
 │   ├── URL_STYLE_EXTRACTION.md      # URL-based style extraction
 │   ├── XLIFF_GLOSSARY_EXTRACTION.md # XLIFF glossary extraction guide
+│   ├── TFIDF_INTEGRATION.md         # TF-IDF importance-based term extraction
 │   ├── SPACY_INTEGRATION.md         # SpaCy language-specific stopwords integration
 │   └── IMPLEMENTATION_SUMMARY.md    # Implementation details
 ├── pyproject.toml        # UV-compatible metadata + dependencies
@@ -211,7 +212,18 @@ The `--template` option rewrites an existing style guide template to match the t
 
 ### 3c. Extract Glossary Terms
 
-The glossary extraction feature now includes **SpaCy integration** for language-specific stopword filtering, providing more accurate term extraction across multiple languages. See `docs/SPACY_INTEGRATION.md` for detailed information.
+The glossary extraction feature supports **three extraction methods** that can be used individually or combined:
+
+1. **Frequency-based** (default): Fast, simple term counting
+2. **TF-IDF-based** (new): Identifies domain-specific terms by importance
+3. **LLM-based**: Intelligent semantic term extraction
+4. **Combined** (new): Use `--use-llm --use-tfidf` together to merge results from both algorithms
+
+**TF-IDF Integration**: Uses Term Frequency-Inverse Document Frequency to identify important domain-specific terms while filtering out common words. Best for XLIFF files with multiple segments. See `docs/TFIDF_INTEGRATION.md` for details.
+
+**SpaCy Integration**: Uses language-specific stopwords from SpaCy models for more accurate filtering across 18+ languages. See `docs/SPACY_INTEGRATION.md` for details.
+
+**Combined Mode**: When both `--use-llm` and `--use-tfidf` flags are set, both algorithms run and results are merged (union of terms), keeping the highest score for any duplicates. This gives you the best of both worlds: LLM's semantic understanding plus TF-IDF's statistical importance.
 
 Extract glossary terms from plain text files:
 ```bash
@@ -231,6 +243,17 @@ python cli.py extract-glossary \
   --output glossary.csv
 ```
 
+Extract from XLIFF files using TF-IDF (importance-based):
+```bash
+python cli.py extract-glossary \
+  --input data/sample.xliff \
+  --source-language English \
+  --target-language Spanish \
+  --output glossary.csv \
+  --use-tfidf \
+  --max-ngram-size 3
+```
+
 Extract from XLIFF files using LLM (intelligent term identification):
 ```bash
 python cli.py extract-glossary \
@@ -239,6 +262,18 @@ python cli.py extract-glossary \
   --target-language Spanish \
   --output glossary.csv \
   --use-llm
+```
+
+Extract using BOTH LLM and TF-IDF (combined - best of both):
+```bash
+python cli.py extract-glossary \
+  --input data/sample.xliff \
+  --source-language English \
+  --target-language Spanish \
+  --output glossary.csv \
+  --use-llm \
+  --use-tfidf \
+  --max-ngram-size 3
 ```
 
 Limit the number of extracted terms:
@@ -278,7 +313,9 @@ python cli.py extract-glossary \
 - `-sl, --source-language` **(required)**: Source language
 - `-tl, --target-language` **(required)**: Target language (needed for TMX extraction)
 - `--use-llm`: Use LLM for intelligent term extraction (requires OpenAI API key)
+- `--use-tfidf`: Use TF-IDF for importance-based term extraction (best with multiple segments)
 - `--max-terms`: Maximum number of terms to extract (default: 50)
+- `--max-ngram-size`: Maximum n-gram size for TF-IDF (default: 3, 1=unigrams only, 2=up to bigrams, 3=up to trigrams)
 
 **Supported input formats:**
 - **Plain text** (.txt): Frequency-based or LLM-based monolingual term extraction
@@ -461,14 +498,16 @@ XLIFF (XML Localization Interchange File Format) is the industry-standard format
 
 **XLIFF Glossary Extraction Features:**
 - **Intelligent parsing**: Extracts text from trans-unit elements including inline elements (`<g>`, `<x>`, etc.)
-- **Dual extraction modes**:
+- **Three extraction modes**:
   - **Frequency-based**: Fast, free, identifies common terms with language-specific stopword filtering via SpaCy
+  - **TF-IDF-based**: Identifies domain-specific terms by importance, filters common words across documents
   - **LLM-based**: Uses GPT-4 to identify domain-specific terminology, technical terms, and key concepts
 - **Automatic detection**: Recognizes `.xlf` and `.xliff` file extensions
 - **Namespace handling**: Works with both namespaced and non-namespaced XLIFF files
-- **Multi-language support**: SpaCy integration provides language-specific stopwords for 15+ languages
+- **Multi-language support**: SpaCy integration provides language-specific stopwords for 18+ languages
+- **N-gram support**: TF-IDF extraction supports unigrams, bigrams, and trigrams for multi-word terms
 
-For more details, see `docs/XLIFF_GLOSSARY_EXTRACTION.md` and `docs/SPACY_INTEGRATION.md`.
+For more details, see `docs/XLIFF_GLOSSARY_EXTRACTION.md`, `docs/TFIDF_INTEGRATION.md`, and `docs/SPACY_INTEGRATION.md`.
 
 ---
 ## Extending the Pipeline

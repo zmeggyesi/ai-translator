@@ -53,6 +53,7 @@
                 "--target-language", "es",
                 "--output", "${workspaceFolder}/data/glossary-debug.csv",
                 "--use-llm",
+                "--use-tfidf",
                 "--max-terms", "100",
                 "--min-significance", "0.8"
             ],

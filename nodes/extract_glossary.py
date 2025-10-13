@@ -7,6 +7,9 @@ from collections import Counter
 from pathlib import Path
 from typing import List, Tuple, Set, Optional, Any, Dict
 
+import spacy
+from spacy.lang.en import STOP_WORDS as EN_STOP_WORDS
+
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.prompt_values import PromptValue
 from langchain_openai import ChatOpenAI
@@ -17,54 +20,94 @@ from nodes.utils import extract_response_content
 
 logger = logging.getLogger(__name__)
 
-# A *very* small English stop-word list – not language-specific but good enough
-STOPWORDS: Set[str] = {
-    "the",
-    "a",
-    "an",
-    "and",
-    "or",
-    "but",
-    "if",
-    "in",
-    "on",
-    "at",
-    "for",
-    "with",
-    "to",
-    "from",
-    "by",
-    "of",
-    "is",
-    "are",
-    "was",
-    "were",
-    "be",
-    "been",
-    "being",
-    "this",
-    "that",
-    "these",
-    "those",
-    "it",
-    "its",
-    "as",
-    "about",
-    "into",
-    "over",
-    "after",
-    "before",
-    "between",
-    "among",
-    "within",
-    "without",
-    "against",
+# Cache for loaded SpaCy models
+_SPACY_MODELS: Dict[str, Any] = {}
+
+# Mapping of language names to SpaCy model names
+LANGUAGE_TO_SPACY_MODEL = {
+    "english": "en_core_web_sm",
+    "spanish": "es_core_news_sm",
+    "french": "fr_core_news_sm",
+    "german": "de_core_news_sm",
+    "italian": "it_core_news_sm",
+    "portuguese": "pt_core_news_sm",
+    "dutch": "nl_core_news_sm",
+    "greek": "el_core_news_sm",
+    "norwegian": "nb_core_news_sm",
+    "polish": "pl_core_news_sm",
+    "romanian": "ro_core_news_sm",
+    "russian": "ru_core_news_sm",
+    "chinese": "zh_core_web_sm",
+    "japanese": "ja_core_news_sm",
+    "danish": "da_core_news_sm",
+    "finnish": "fi_core_news_sm",
+    "swedish": "sv_core_news_sm",
+    "catalan": "ca_core_news_sm",
 }
+
+# Fallback stopwords (English) if SpaCy model is not available
+FALLBACK_STOPWORDS: Set[str] = set(EN_STOP_WORDS)
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _get_spacy_model(language: str) -> Optional[Any]:
+    """Load SpaCy model for the given language.
+    
+    Args:
+        language: Language name (e.g., "English", "Spanish")
+    
+    Returns:
+        SpaCy language model or None if not available
+    """
+    lang_key = language.lower()
+    
+    # Check cache first
+    if lang_key in _SPACY_MODELS:
+        return _SPACY_MODELS[lang_key]
+    
+    # Try to load the model
+    model_name = LANGUAGE_TO_SPACY_MODEL.get(lang_key)
+    if not model_name:
+        logger.warning(f"No SpaCy model mapping found for language: {language}")
+        return None
+    
+    try:
+        nlp = spacy.load(model_name)
+        _SPACY_MODELS[lang_key] = nlp
+        logger.info(f"Loaded SpaCy model: {model_name} for language: {language}")
+        return nlp
+    except OSError:
+        logger.warning(
+            f"SpaCy model '{model_name}' not found. "
+            f"Install it with: python -m spacy download {model_name}"
+        )
+        _SPACY_MODELS[lang_key] = None
+        return None
+
+
+def _get_stopwords(language: str) -> Set[str]:
+    """Get stopwords for the given language from SpaCy.
+    
+    Args:
+        language: Language name (e.g., "English", "Spanish")
+    
+    Returns:
+        Set of stopwords for the language
+    """
+    nlp = _get_spacy_model(language)
+    
+    if nlp is not None:
+        stopwords = nlp.Defaults.stop_words
+        logger.info(f"Using {len(stopwords)} stopwords from SpaCy model for {language}")
+        return stopwords
+    
+    # Fallback to English stopwords
+    logger.info(f"Using fallback English stopwords ({len(FALLBACK_STOPWORDS)} words)")
+    return FALLBACK_STOPWORDS
 
 def _canonical(code: str) -> str:
     return code.lower().split("-")[0].split("_")[0]
@@ -133,9 +176,22 @@ def extract_glossary_from_tmx(
 # Monolingual extraction
 # ---------------------------------------------------------------------------
 
-def extract_terms_from_text(text: str, top_n: int = 50) -> List[str]:
+def extract_terms_from_text(
+    text: str, top_n: int = 50, language: str = "English"
+) -> List[str]:
+    """Extract terms from text using frequency analysis.
+    
+    Args:
+        text: Input text
+        top_n: Number of top terms to return
+        language: Language of the text for stopword filtering
+    
+    Returns:
+        List of top terms by frequency
+    """
+    stopwords = _get_stopwords(language)
     tokens = [tok.lower() for tok in _tokenise(text)]
-    tokens = [tok for tok in tokens if tok not in STOPWORDS and len(tok) > 3]
+    tokens = [tok for tok in tokens if tok not in stopwords and len(tok) > 3]
     freq = Counter(tokens)
     return [term for term, _ in freq.most_common(top_n)]
 
@@ -458,7 +514,9 @@ def extract_glossary(
             else:
                 # Combine segments and use frequency-based extraction
                 combined_text = "\n".join(text_segments)
-                terms_list = extract_terms_from_text(combined_text, top_n=max_terms)
+                terms_list = extract_terms_from_text(
+                    combined_text, top_n=max_terms, language=source_language
+                )
                 # No significance scores for frequency-based extraction
                 terms = [(term, "", None) for term in terms_list]
         else:
@@ -476,7 +534,9 @@ def extract_glossary(
                 # Convert to CSV format: (term, translation, significance)
                 terms = [(term, "", significance) for term, significance in terms_with_scores]
             else:
-                terms_list = extract_terms_from_text(txt, top_n=max_terms)
+                terms_list = extract_terms_from_text(
+                    txt, top_n=max_terms, language=source_language
+                )
                 # No significance scores for frequency-based extraction
                 terms = [(term, "", None) for term in terms_list]
         

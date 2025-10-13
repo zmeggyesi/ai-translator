@@ -60,6 +60,7 @@ translation/
 │   ├── DOCUMENT_STYLE_EXTRACTION.md # Document-based style extraction
 │   ├── URL_STYLE_EXTRACTION.md      # URL-based style extraction
 │   ├── XLIFF_GLOSSARY_EXTRACTION.md # XLIFF glossary extraction guide
+│   ├── SPACY_INTEGRATION.md         # SpaCy language-specific stopwords integration
 │   └── IMPLEMENTATION_SUMMARY.md    # Implementation details
 ├── pyproject.toml        # UV-compatible metadata + dependencies
 ├── uv.lock               # Machine-generated lock-file (UV)
@@ -209,6 +210,8 @@ python cli.py extract-style \
 The `--template` option rewrites an existing style guide template to match the tone and patterns found in your analyzed content, preserving the template's structure and placeholders.
 
 ### 3c. Extract Glossary Terms
+
+The glossary extraction feature now includes **SpaCy integration** for language-specific stopword filtering, providing more accurate term extraction across multiple languages. See `docs/SPACY_INTEGRATION.md` for detailed information.
 
 Extract glossary terms from plain text files:
 ```bash
@@ -459,12 +462,13 @@ XLIFF (XML Localization Interchange File Format) is the industry-standard format
 **XLIFF Glossary Extraction Features:**
 - **Intelligent parsing**: Extracts text from trans-unit elements including inline elements (`<g>`, `<x>`, etc.)
 - **Dual extraction modes**:
-  - **Frequency-based**: Fast, free, identifies common terms
+  - **Frequency-based**: Fast, free, identifies common terms with language-specific stopword filtering via SpaCy
   - **LLM-based**: Uses GPT-4 to identify domain-specific terminology, technical terms, and key concepts
 - **Automatic detection**: Recognizes `.xlf` and `.xliff` file extensions
 - **Namespace handling**: Works with both namespaced and non-namespaced XLIFF files
+- **Multi-language support**: SpaCy integration provides language-specific stopwords for 15+ languages
 
-For more details, see `docs/XLIFF_GLOSSARY_EXTRACTION.md`.
+For more details, see `docs/XLIFF_GLOSSARY_EXTRACTION.md` and `docs/SPACY_INTEGRATION.md`.
 
 ---
 ## Extending the Pipeline

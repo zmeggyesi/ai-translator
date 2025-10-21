@@ -148,7 +148,7 @@ python cli.py translate-file -i data/input.txt -sl English -l German          # 
 - `--visualize`: Generate visualization diagrams of the workflow  
 - `--viz-type {main,review,combined,all}`: Type of visualization to generate (default: combined when review is enabled)
 
-### 3b. Extract a Style Guide from TMX, Documents, or URLs
+### 3b. Extract a Style Guide from TMX, Documents, XLIFF, or URLs
 
 Extract from TMX file:
 ```bash
@@ -174,6 +174,15 @@ Extract from DOCX document:
 python cli.py extract-style \
   --input data/style_document.docx \
   --file-type docx \
+  --source-language English \
+  --output extracted_style.md
+```
+
+Extract from XLIFF file (using source elements):
+```bash
+python cli.py extract-style \
+  --input data/translations.xlf \
+  --file-type xlf \
   --source-language English \
   --output extracted_style.md
 ```
@@ -223,7 +232,7 @@ The glossary extraction feature supports **three extraction methods** that can b
 
 **SpaCy Integration**: Uses language-specific stopwords from SpaCy models for more accurate filtering across 18+ languages. See `docs/SPACY_INTEGRATION.md` for details.
 
-**Combined Mode**: When both `--use-llm` and `--use-tfidf` flags are set, both algorithms run and results are merged (union of terms). TF-IDF scores are normalized to match the LLM score scale for fair comparison, then the highest score is kept for any duplicates. This gives you the best of both worlds: LLM's semantic understanding plus TF-IDF's statistical importance.
+**Combined Mode**: When both `--use-llm` and `--use-tfidf` flags are set, both algorithms run and results are merged (union of terms). TF-IDF scores are normalized to match the LLM score scale for fair comparison, then the highest score is kept for any duplicates. The output CSV includes a `source` column indicating whether each term came from `llm`, `tfidf`, or `llm+tfidf` (when scores are equal). This gives you the best of both worlds: LLM's semantic understanding plus TF-IDF's statistical importance.
 
 Extract glossary terms from plain text files:
 ```bash

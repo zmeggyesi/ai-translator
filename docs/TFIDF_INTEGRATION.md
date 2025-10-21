@@ -225,10 +225,10 @@ uv run python cli.py extract-glossary \
     --max-ngram-size 2
 
 # Output: glossary.csv with top 100 terms ranked by TF-IDF
-# term,translation,significance
-# "api authentication",,"0.8542"
-# "user credentials",,"0.7891"
-# "database connection",,"0.7234"
+# term,translation,significance,source
+# "api authentication",,"0.8542","tfidf"
+# "user credentials",,"0.7891","tfidf"
+# "database connection",,"0.7234","tfidf"
 ```
 
 ### Example 2: Technical Documentation

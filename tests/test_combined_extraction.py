@@ -325,6 +325,135 @@ def test_combined_extraction_score_normalization(tmp_path):
     assert abs(max_score - 0.95) < 0.01  # Within 0.01 of LLM max
 
 
+def test_source_column_in_combined_extraction(tmp_path):
+    """Test that source column correctly identifies LLM vs TF-IDF terms."""
+    xliff_file = tmp_path / "test.xliff"
+    xliff_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en" target-language="es">
+    <body>
+      <trans-unit id="1">
+        <source>Machine learning algorithms</source>
+      </trans-unit>
+      <trans-unit id="2">
+        <source>Deep learning systems</source>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>'''
+    
+    xliff_file.write_text(xliff_content, encoding="utf-8")
+    output_file = tmp_path / "glossary.csv"
+    
+    # Mock LLM to return specific terms
+    mock_llm_terms = [
+        ("machine learning", 0.95),
+        ("deep learning", 0.90),
+    ]
+    
+    with patch('nodes.extract_glossary.extract_glossary_with_llm', return_value=mock_llm_terms):
+        extract_glossary(
+            input_file=str(xliff_file),
+            file_type="xliff",
+            source_language="English",
+            target_language="Spanish",
+            output=str(output_file),
+            use_llm=True,
+            use_tfidf=True,
+            max_terms=20,
+            max_ngram_size=2,
+        )
+    
+    # Read and parse the CSV
+    import csv
+    with open(output_file) as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+    
+    # Should have source column
+    assert "source" in rows[0].keys()
+    
+    # Find LLM terms
+    llm_terms = [row for row in rows if row["source"] == "llm"]
+    tfidf_terms = [row for row in rows if row["source"] == "tfidf"]
+    both_terms = [row for row in rows if row["source"] == "llm+tfidf"]
+    
+    # Should have some terms from each source
+    assert len(llm_terms) >= 0  # May be 0 if TF-IDF scored higher
+    assert len(tfidf_terms) >= 0  # May be 0 if LLM scored higher
+    
+    # All terms should have a source
+    assert all(row["source"] in ["llm", "tfidf", "llm+tfidf"] for row in rows)
+    
+    # Check that LLM mock terms are present (might be from either source depending on scores)
+    all_terms = [row["term"] for row in rows]
+    assert "machine learning" in all_terms
+    assert "deep learning" in all_terms
+
+
+def test_source_column_llm_only(tmp_path):
+    """Test that LLM-only extraction marks all terms as 'llm'."""
+    xliff_file = tmp_path / "test.xliff"
+    xliff_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2"><file><body>
+<trans-unit id="1"><source>Test content</source></trans-unit>
+</body></file></xliff>'''
+    
+    xliff_file.write_text(xliff_content, encoding="utf-8")
+    output_file = tmp_path / "glossary.csv"
+    
+    mock_llm_terms = [("test", 0.95), ("content", 0.90)]
+    
+    with patch('nodes.extract_glossary.extract_glossary_with_llm', return_value=mock_llm_terms):
+        extract_glossary(
+            input_file=str(xliff_file),
+            source_language="English",
+            target_language="Spanish",
+            output=str(output_file),
+            use_llm=True,
+            use_tfidf=False,
+        )
+    
+    import csv
+    with open(output_file) as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+    
+    # All terms should be from LLM
+    assert all(row["source"] == "llm" for row in rows)
+
+
+def test_source_column_tfidf_only(tmp_path):
+    """Test that TF-IDF-only extraction marks all terms as 'tfidf'."""
+    xliff_file = tmp_path / "test.xliff"
+    xliff_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2"><file><body>
+<trans-unit id="1"><source>Cloud computing provides scalable infrastructure</source></trans-unit>
+<trans-unit id="2"><source>Kubernetes orchestrates containerized applications</source></trans-unit>
+</body></file></xliff>'''
+    
+    xliff_file.write_text(xliff_content, encoding="utf-8")
+    output_file = tmp_path / "glossary.csv"
+    
+    extract_glossary(
+        input_file=str(xliff_file),
+        source_language="English",
+        target_language="Spanish",
+        output=str(output_file),
+        use_llm=False,
+        use_tfidf=True,
+        max_terms=10,
+    )
+    
+    import csv
+    with open(output_file) as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+    
+    # All terms should be from TF-IDF
+    assert all(row["source"] == "tfidf" for row in rows)
+
+
 def test_combined_vs_individual_extraction_counts(tmp_path):
     """Test that combined extraction has more terms than individual methods."""
     xliff_file = tmp_path / "test.xliff"

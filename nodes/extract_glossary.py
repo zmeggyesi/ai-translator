@@ -541,20 +541,26 @@ def extract_glossary_with_llm(
 # Public entry-point
 # ---------------------------------------------------------------------------
 
-def write_glossary_csv(rows: List[Tuple[str, str, Optional[float]]], output_path: str):
+def write_glossary_csv(rows: List[Tuple], output_path: str):
     """Write glossary to CSV file.
     
     Args:
-        rows: List of tuples containing (term, translation, significance)
+        rows: List of tuples containing (term, translation, significance) or 
+              (term, translation, significance, source)
         output_path: Path to output CSV file
     """
     out_file = Path(output_path)
     with out_file.open("w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f)
-        # Check if we have significance scores
-        has_significance = any(len(row) > 2 and row[2] is not None for row in rows)
         
-        if has_significance:
+        # Check if we have significance scores and source info
+        has_significance = any(len(row) > 2 and row[2] is not None for row in rows)
+        has_source = any(len(row) > 3 for row in rows)
+        
+        # Write appropriate header
+        if has_source:
+            writer.writerow(["term", "translation", "significance", "source"])
+        elif has_significance:
             writer.writerow(["term", "translation", "significance"])
         else:
             writer.writerow(["term", "translation"])
@@ -705,20 +711,23 @@ def extract_glossary(
                     tfidf_terms = _normalize_scores(tfidf_terms, target_max=llm_max)
                     logger.info("Normalized TF-IDF scores to match LLM scale for fair comparison")
                 
-                # Merge results: union of terms, keeping highest score for duplicates
-                terms_dict: Dict[str, float] = {}
+                # Merge results: union of terms, keeping highest score and source for duplicates
+                terms_dict: Dict[str, Tuple[float, str]] = {}  # term -> (score, source)
                 for term, score in llm_terms:
-                    terms_dict[term] = score
+                    terms_dict[term] = (score, "llm")
                 for term, score in tfidf_terms:
-                    if term not in terms_dict or score > terms_dict[term]:
-                        terms_dict[term] = score
+                    if term not in terms_dict or score > terms_dict[term][0]:
+                        terms_dict[term] = (score, "tfidf")
+                    elif score == terms_dict[term][0]:
+                        # If scores are equal, mark as both
+                        terms_dict[term] = (score, "llm+tfidf")
                 
                 # Sort by score (highest first), then alphabetically
-                sorted_terms = sorted(terms_dict.items(), key=lambda x: (-x[1], x[0]))
+                sorted_terms = sorted(terms_dict.items(), key=lambda x: (-x[1][0], x[0]))
                 logger.info(f"Merged results: {len(llm_terms)} LLM terms + {len(tfidf_terms)} TF-IDF terms = {len(sorted_terms)} unique terms")
                 
-                # Convert to CSV format
-                terms = [(term, "", score) for term, score in sorted_terms]
+                # Convert to CSV format: (term, translation, score, source)
+                terms = [(term, "", score, source) for term, (score, source) in sorted_terms]
                 
             elif use_llm:
                 logger.info("Using LLM-based extraction for XLIFF content")
@@ -728,8 +737,8 @@ def extract_glossary(
                     max_terms_per_chunk=max_terms,
                     min_significance=min_significance
                 )
-                # Convert to CSV format: (term, translation, significance)
-                terms = [(term, "", significance) for term, significance in terms_with_scores]
+                # Convert to CSV format: (term, translation, significance, source)
+                terms = [(term, "", significance, "llm") for term, significance in terms_with_scores]
             elif use_tfidf:
                 logger.info("Using TF-IDF extraction for XLIFF content")
                 terms_with_scores = extract_terms_with_tfidf(
@@ -738,8 +747,8 @@ def extract_glossary(
                     language=source_language,
                     max_ngram_size=max_ngram_size
                 )
-                # Convert to CSV format: (term, translation, tfidf_score)
-                terms = [(term, "", score) for term, score in terms_with_scores]
+                # Convert to CSV format: (term, translation, tfidf_score, source)
+                terms = [(term, "", score, "tfidf") for term, score in terms_with_scores]
             else:
                 # Combine segments and use frequency-based extraction
                 combined_text = "\n".join(text_segments)
@@ -785,20 +794,23 @@ def extract_glossary(
                     tfidf_terms = _normalize_scores(tfidf_terms, target_max=llm_max)
                     logger.info("Normalized TF-IDF scores to match LLM scale for fair comparison")
                 
-                # Merge results: union of terms, keeping highest score for duplicates
-                terms_dict: Dict[str, float] = {}
+                # Merge results: union of terms, keeping highest score and source for duplicates
+                terms_dict: Dict[str, Tuple[float, str]] = {}  # term -> (score, source)
                 for term, score in llm_terms:
-                    terms_dict[term] = score
+                    terms_dict[term] = (score, "llm")
                 for term, score in tfidf_terms:
-                    if term not in terms_dict or score > terms_dict[term]:
-                        terms_dict[term] = score
+                    if term not in terms_dict or score > terms_dict[term][0]:
+                        terms_dict[term] = (score, "tfidf")
+                    elif score == terms_dict[term][0]:
+                        # If scores are equal, mark as both
+                        terms_dict[term] = (score, "llm+tfidf")
                 
                 # Sort by score (highest first), then alphabetically
-                sorted_terms = sorted(terms_dict.items(), key=lambda x: (-x[1], x[0]))
+                sorted_terms = sorted(terms_dict.items(), key=lambda x: (-x[1][0], x[0]))
                 logger.info(f"Merged results: {len(llm_terms)} LLM terms + {len(tfidf_terms)} TF-IDF terms = {len(sorted_terms)} unique terms")
                 
-                # Convert to CSV format
-                terms = [(term, "", score) for term, score in sorted_terms]
+                # Convert to CSV format: (term, translation, score, source)
+                terms = [(term, "", score, source) for term, (score, source) in sorted_terms]
                 
             elif use_llm:
                 logger.info("Using LLM-based extraction for text content")
@@ -808,8 +820,8 @@ def extract_glossary(
                     max_terms_per_chunk=max_terms,
                     min_significance=min_significance
                 )
-                # Convert to CSV format: (term, translation, significance)
-                terms = [(term, "", significance) for term, significance in terms_with_scores]
+                # Convert to CSV format: (term, translation, significance, source)
+                terms = [(term, "", significance, "llm") for term, significance in terms_with_scores]
             elif use_tfidf:
                 logger.info("Using TF-IDF extraction for text content")
                 # Split text into paragraphs for TF-IDF analysis
@@ -827,8 +839,8 @@ def extract_glossary(
                     language=source_language,
                     max_ngram_size=max_ngram_size
                 )
-                # Convert to CSV format: (term, translation, tfidf_score)
-                terms = [(term, "", score) for term, score in terms_with_scores]
+                # Convert to CSV format: (term, translation, tfidf_score, source)
+                terms = [(term, "", score, "tfidf") for term, score in terms_with_scores]
             else:
                 terms_list = extract_terms_from_text(
                     txt, top_n=max_terms, language=source_language

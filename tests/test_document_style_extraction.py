@@ -15,9 +15,11 @@ from nodes.document_parsers import (
     parse_document,
     create_document_entries,
     _basic_sentence_split,
+    parse_xliff,
 )
 from nodes.extract_style import (
     extract_style_guide_from_document,
+    extract_style_guide_from_xliff,
     extract_style_guide_unified,
 )
 
@@ -391,6 +393,198 @@ class TestStyleExtractionFromDocuments:
         """Test unified style extraction with unsupported file type."""
         with pytest.raises(ValueError, match="Unsupported file type: txt"):
             extract_style_guide_unified("test.txt", "txt", "English")
+    
+    def test_extract_style_guide_unified_xliff(self):
+        """Test unified style extraction with XLIFF file."""
+        with patch('nodes.extract_style.extract_style_guide_from_xliff') as mock_extract:
+            mock_extract.return_value = "XLIFF style guide"
+            
+            result = extract_style_guide_unified(
+                "test.xlf", "xlf", "English", None, "output.md"
+            )
+            
+            assert result == "XLIFF style guide"
+            mock_extract.assert_called_once_with("test.xlf", "English", "output.md", None)
+    
+    def test_extract_style_guide_unified_xliff_variant(self):
+        """Test unified style extraction with .xliff file extension."""
+        with patch('nodes.extract_style.extract_style_guide_from_xliff') as mock_extract:
+            mock_extract.return_value = "XLIFF style guide"
+            
+            result = extract_style_guide_unified(
+                "test.xliff", "xliff", "Spanish", None, "output.md"
+            )
+            
+            assert result == "XLIFF style guide"
+            mock_extract.assert_called_once_with("test.xliff", "Spanish", "output.md", None)
+
+
+class TestXLIFFParsing:
+    """Tests for XLIFF parsing functionality."""
+
+    def test_parse_xliff_source_extraction(self):
+        """Test XLIFF parsing with source text extraction."""
+        xliff_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en" target-language="es" datatype="plaintext">
+    <body>
+      <trans-unit id="1">
+        <source>Hello world</source>
+        <target>Hola mundo</target>
+      </trans-unit>
+      <trans-unit id="2">
+        <source>Good morning</source>
+        <target>Buenos días</target>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>'''
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.xliff', delete=False, encoding='utf-8') as f:
+            f.write(xliff_content)
+            temp_path = f.name
+        
+        try:
+            segments = parse_xliff(temp_path, extract_target=False)
+            
+            assert len(segments) == 2
+            assert "Hello world" in segments
+            assert "Good morning" in segments
+        finally:
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
+
+    def test_parse_xliff_file_not_found(self):
+        """Test XLIFF parsing with non-existent file."""
+        with pytest.raises(FileNotFoundError):
+            parse_xliff("nonexistent.xliff")
+
+
+class TestStyleExtractionFromXLIFF:
+    """Tests for style extraction from XLIFF files."""
+
+    def test_extract_style_guide_from_xliff_success(self):
+        """Test successful style guide extraction from XLIFF."""
+        xliff_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en" target-language="es" datatype="plaintext">
+    <body>
+      <trans-unit id="1">
+        <source>This is a professional sentence.</source>
+        <target>Esta es una oración profesional.</target>
+      </trans-unit>
+      <trans-unit id="2">
+        <source>We provide excellent service.</source>
+        <target>Proporcionamos un excelente servicio.</target>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>'''
+        
+        mock_style_guide = "# Style Guide\n\nThis is a generated style guide from XLIFF."
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.xliff', delete=False, encoding='utf-8') as f:
+            f.write(xliff_content)
+            temp_xliff = f.name
+        
+        try:
+            with patch('nodes.extract_style.infer_style_guide_from_tmx') as mock_infer:
+                mock_infer.return_value = mock_style_guide
+                
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as out_f:
+                    temp_output = out_f.name
+                
+                try:
+                    result = extract_style_guide_from_xliff(
+                        temp_xliff, "English", temp_output
+                    )
+                    
+                    assert result == mock_style_guide
+                    mock_infer.assert_called_once()
+                    
+                    # Check that the tmx_memory structure is correct
+                    call_args = mock_infer.call_args
+                    tmx_memory = call_args[0][0]
+                    assert tmx_memory["xliff_source"] is True
+                    assert tmx_memory["xliff_path"] == temp_xliff
+                    assert tmx_memory["language_pair"] == "English->English"
+                    assert len(tmx_memory["entries"]) == 2
+                finally:
+                    if os.path.exists(temp_output):
+                        os.unlink(temp_output)
+        finally:
+            if os.path.exists(temp_xliff):
+                os.unlink(temp_xliff)
+
+    def test_extract_style_guide_from_xliff_with_template(self):
+        """Test style guide extraction from XLIFF with template rewriting."""
+        xliff_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en" datatype="plaintext">
+    <body>
+      <trans-unit id="1">
+        <source>Sample text for style extraction.</source>
+      </trans-unit>
+    </body>
+  </file>
+</xliff>'''
+        
+        mock_style_guide = "# Rewritten Style Guide\n\nBased on template and XLIFF content."
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.xliff', delete=False, encoding='utf-8') as f:
+            f.write(xliff_content)
+            temp_xliff = f.name
+        
+        try:
+            with patch('nodes.extract_style.rewrite_style_guide_template') as mock_rewrite:
+                mock_rewrite.return_value = mock_style_guide
+                
+                with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as out_f:
+                    temp_output = out_f.name
+                
+                try:
+                    result = extract_style_guide_from_xliff(
+                        temp_xliff, "English", temp_output, template_path="template.md"
+                    )
+                    
+                    assert result == mock_style_guide
+                    mock_rewrite.assert_called_once()
+                    
+                    # Verify template_path was passed
+                    call_args = mock_rewrite.call_args
+                    assert call_args[0][1] == "template.md"
+                finally:
+                    if os.path.exists(temp_output):
+                        os.unlink(temp_output)
+        finally:
+            if os.path.exists(temp_xliff):
+                os.unlink(temp_xliff)
+
+    def test_extract_style_guide_from_xliff_file_not_found(self):
+        """Test style extraction with non-existent XLIFF file."""
+        with pytest.raises(FileNotFoundError):
+            extract_style_guide_from_xliff("nonexistent.xliff", "English")
+
+    def test_extract_style_guide_from_xliff_empty_file(self):
+        """Test style extraction with XLIFF file containing no trans-units."""
+        xliff_content = '''<?xml version="1.0" encoding="UTF-8"?>
+<xliff version="1.2" xmlns="urn:oasis:names:tc:xliff:document:1.2">
+  <file source-language="en" datatype="plaintext">
+    <body>
+    </body>
+  </file>
+</xliff>'''
+        
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.xliff', delete=False, encoding='utf-8') as f:
+            f.write(xliff_content)
+            temp_xliff = f.name
+        
+        try:
+            with pytest.raises(ValueError, match="No text segments found"):
+                extract_style_guide_from_xliff(temp_xliff, "English")
+        finally:
+            if os.path.exists(temp_xliff):
+                os.unlink(temp_xliff)
 
 
 def mock_open(content=""):

@@ -16,7 +16,7 @@ except ImportError:
 
 from nodes.tmx_loader import parse_tmx_file
 from nodes.style_guide import infer_style_guide_from_tmx, rewrite_style_guide_template
-from nodes.document_parsers import parse_document, create_document_entries, split_into_sentences
+from nodes.document_parsers import parse_document, create_document_entries, split_into_sentences, parse_xliff
 
 logger = logging.getLogger(__name__)
 
@@ -331,6 +331,70 @@ def extract_style_guide_from_document(
     return style_guide_md
 
 
+def extract_style_guide_from_xliff(
+    xliff_path: str,
+    source_language: str,
+    output_path: str = "extracted_style.md",
+    template_path: Optional[str] = None,
+) -> str:
+    """Generate a style guide from an XLIFF file.
+
+    Args:
+        xliff_path: Path to the XLIFF file
+        source_language: Language of the source text in the XLIFF file
+        output_path: Path to write the style guide
+        template_path: Optional path to a style guide template to rewrite based on the content
+
+    Returns:
+        The generated style guide as a markdown string
+
+    Raises:
+        FileNotFoundError: If the XLIFF file doesn't exist
+        ValueError: If the XLIFF cannot be parsed or no content is found
+    """
+    xliff_file = Path(xliff_path)
+    if not xliff_file.exists():
+        raise FileNotFoundError(f"XLIFF file not found: {xliff_path}")
+
+    logger.info("Parsing XLIFF file for style extraction → %s", xliff_file)
+    
+    # Parse the XLIFF file to extract source text segments
+    text_segments = parse_xliff(str(xliff_file), extract_target=False)
+    
+    if not text_segments:
+        raise ValueError(f"No text segments found in XLIFF file: {xliff_path}")
+    
+    logger.info(f"Extracted {len(text_segments)} segments from XLIFF file")
+    
+    # Create TMX-like entries for the style guide generation
+    entries = create_document_entries(text_segments, source_language)
+    
+    # Create a TMX memory structure compatible with existing style guide logic
+    tmx_memory = {
+        "entries": entries,
+        "language_pair": f"{source_language}->{source_language}",
+        "xliff_source": True,  # Flag to indicate this is from XLIFF parsing
+        "xliff_path": xliff_path
+    }
+
+    # Use template rewriting if template is provided, otherwise generate new guide
+    if template_path:
+        logger.info("Rewriting template based on XLIFF content: %s", template_path)
+        style_guide_md = rewrite_style_guide_template(tmx_memory, template_path)
+    else:
+        style_guide_md = infer_style_guide_from_tmx(tmx_memory, use_llm=True)
+    
+    if not style_guide_md:
+        raise ValueError("Failed to generate style guide from XLIFF segments.")
+
+    # Write out ----------------------------------------------------------
+    out_path = Path(output_path)
+    out_path.write_text(style_guide_md, encoding="utf-8")
+    logger.info("Style guide written → %s", out_path)
+
+    return style_guide_md
+
+
 def extract_style_guide(
     tmx_path: str,
     source_language: str,
@@ -404,13 +468,13 @@ def extract_style_guide_unified(
     max_urls: Optional[int] = None,
     template_path: Optional[str] = None,
 ) -> str:
-    """Unified style guide extraction that handles TMX, document files, and URL lists.
+    """Unified style guide extraction that handles TMX, document files, XLIFF files, and URL lists.
 
     Args:
         file_path: Path to the input file
-        file_type: Type of file ('tmx', 'pdf', 'docx', 'doc', 'urls')
+        file_type: Type of file ('tmx', 'pdf', 'docx', 'doc', 'xlf', 'xliff', 'urls')
         source_language: Source language
-        target_language: Target language (required for TMX, optional for documents and URLs)
+        target_language: Target language (required for TMX, optional for documents, XLIFF, and URLs)
         output_path: Output path for the style guide
         max_urls: Optional limit on number of URLs to process (only for 'urls' file type)
         template_path: Optional path to a style guide template to rewrite based on the content
@@ -434,9 +498,13 @@ def extract_style_guide_unified(
         # since we're extracting style from monolingual content
         return extract_style_guide_from_document(file_path, file_type, source_language, output_path, template_path)
     
+    elif file_type in ['xlf', 'xliff']:
+        # For XLIFF files, extract style from source elements
+        return extract_style_guide_from_xliff(file_path, source_language, output_path, template_path)
+    
     elif file_type == 'urls':
         # For URL lists, fetch and aggregate content from web pages
         return extract_style_guide_from_urls(file_path, source_language, output_path, max_urls, template_path)
     
     else:
-        raise ValueError(f"Unsupported file type: {file_type}. Supported types: tmx, pdf, docx, doc, urls")
+        raise ValueError(f"Unsupported file type: {file_type}. Supported types: tmx, pdf, docx, doc, xlf, xliff, urls")

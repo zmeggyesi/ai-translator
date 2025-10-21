@@ -276,11 +276,11 @@ def _run_translation(args: argparse.Namespace) -> None:  # noqa: C901 – comple
 def _add_style_parser(subparsers: argparse._SubParsersAction) -> argparse.ArgumentParser:
     p = subparsers.add_parser(
         "extract-style",
-        help="Infer a style guide from a TMX file, document (PDF, DOCX, DOC), or URLs.",
+        help="Infer a style guide from a TMX file, document (PDF, DOCX, DOC), XLIFF file, or URLs.",
     )
     p.add_argument("-i", "--input", required=True, help="Input file path")
     p.add_argument("-ft", "--file-type", required=True, 
-                   choices=["tmx", "pdf", "docx", "doc", "urls"],
+                   choices=["tmx", "pdf", "docx", "doc", "xlf", "xliff", "urls"],
                    help="Type of input file")
     p.add_argument("-sl", "--source-language", required=True, help="Source language code")
     p.add_argument("-tl", "--target-language", 
